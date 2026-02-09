@@ -1,0 +1,28 @@
+{
+  "name": "ipad-windows-canvas-desktop",
+  "version": "0.1.0",
+  "description": "Desktop host for iPad drawing",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "ws": "^8.16.0",
+    "bonjour-service": "^1.2.1"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0"
+  },
+  "build": {
+    "appId": "com.ipadcanvas.desktop",
+    "productName": "iPad Canvas Desktop",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    }
+  }
+}

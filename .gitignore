@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+desktop/dist/
+desktop/out/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Electron
+desktop/*.log
+
+# iOS
+ipad/NoteBridge/build/
+ipad/NoteBridge/DerivedData/
+*.xcuserdata

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>iPad Canvas Desktop</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="toolbar">
+    <span id="app-title">iPad Canvas</span>
+    <div id="toolbar-right">
+      <span id="connection-status" class="status-disconnected">No iPad Connected</span>
+      <button id="clear-btn" title="Clear Canvas">Clear</button>
+    </div>
+  </div>
+  <div id="canvas-container">
+    <canvas id="canvas"></canvas>
+  </div>
+  <script src="canvas.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
