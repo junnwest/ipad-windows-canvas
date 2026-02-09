@@ -10,11 +10,11 @@
     "test": "echo \"No tests yet\" && exit 0"
   },
   "dependencies": {
-    "ws": "^8.16.0",
-    "bonjour-service": "^1.2.1"
+    "bonjour-service": "^1.2.1",
+    "ws": "^8.16.0"
   },
   "devDependencies": {
-    "electron": "^33.0.0",
+    "electron": "^40.2.1",
     "electron-builder": "^25.1.0"
   },
   "build": {

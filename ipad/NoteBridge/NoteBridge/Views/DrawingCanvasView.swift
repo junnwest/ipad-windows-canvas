@@ -4,9 +4,15 @@ class DrawingCanvasView: UIView {
 
     var connectionService: ConnectionService?
 
-    // Local drawing state
-    private var currentPath: UIBezierPath?
-    private var allPaths: [(path: UIBezierPath, width: CGFloat)] = []
+    // Local drawing state - store individual segments with pressure
+    private struct Segment {
+        let from: CGPoint
+        let to: CGPoint
+        let width: CGFloat
+    }
+    private var completedSegments: [Segment] = []
+    private var currentSegments: [Segment] = []
+    private var lastPoint: CGPoint?
     private var currentStrokeId: String?
 
     override init(frame: CGRect) {
@@ -32,58 +38,61 @@ class DrawingCanvasView: UIView {
         currentStrokeId = strokeId
         connectionService?.beginStroke(id: strokeId)
 
-        // Start local path
-        let path = UIBezierPath()
-        path.lineCapStyle = .round
-        path.lineJoinStyle = .round
-        path.move(to: location)
-        currentPath = path
+        lastPoint = location
+        currentSegments = []
 
         // Send first point
         sendPoint(touch: touch)
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first, let path = currentPath else { return }
+        guard let touch = touches.first, let prev = lastPoint else { return }
 
         // Use coalesced touches for smoother lines
         let coalescedTouches = event?.coalescedTouches(for: touch) ?? [touch]
+        var from = prev
 
         for coalescedTouch in coalescedTouches {
             let location = coalescedTouch.location(in: self)
-            path.addLine(to: location)
+            let pressure = coalescedTouch.force > 0 ? coalescedTouch.force / coalescedTouch.maximumPossibleForce : 0.5
+            let width = max(0.5, 3.0 * pressure)
+
+            currentSegments.append(Segment(from: from, to: location, width: width))
+            from = location
             sendPoint(touch: coalescedTouch)
         }
 
-        // Redraw only the affected area (optimization)
+        lastPoint = from
         setNeedsDisplay()
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
 
-        // Add final point
-        sendPoint(touch: touch)
-
-        // Finalize the path
-        if let path = currentPath {
+        // Add final segment
+        if let prev = lastPoint {
+            let location = touch.location(in: self)
             let pressure = touch.force > 0 ? touch.force / touch.maximumPossibleForce : 0.5
-            let width = 2.0 * pressure
-            allPaths.append((path: path, width: width))
+            let width = max(0.5, 3.0 * pressure)
+            currentSegments.append(Segment(from: prev, to: location, width: width))
         }
 
+        sendPoint(touch: touch)
         connectionService?.endStroke()
-        currentPath = nil
+
+        // Move current segments to completed
+        completedSegments.append(contentsOf: currentSegments)
+        currentSegments = []
+        lastPoint = nil
         currentStrokeId = nil
         setNeedsDisplay()
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let path = currentPath {
-            allPaths.append((path: path, width: 1.0))
-        }
         connectionService?.endStroke()
-        currentPath = nil
+        completedSegments.append(contentsOf: currentSegments)
+        currentSegments = []
+        lastPoint = nil
         currentStrokeId = nil
         setNeedsDisplay()
     }
@@ -116,22 +125,21 @@ class DrawingCanvasView: UIView {
     override func draw(_ rect: CGRect) {
         UIColor.black.setStroke()
 
-        // Draw completed strokes
-        for entry in allPaths {
-            entry.path.lineWidth = entry.width
-            entry.path.stroke()
-        }
-
-        // Draw current in-progress stroke
-        if let path = currentPath {
-            path.lineWidth = 2.0
+        let allSegments = completedSegments + currentSegments
+        for seg in allSegments {
+            let path = UIBezierPath()
+            path.lineCapStyle = .round
+            path.move(to: seg.from)
+            path.addLine(to: seg.to)
+            path.lineWidth = seg.width
             path.stroke()
         }
     }
 
     func clear() {
-        allPaths.removeAll()
-        currentPath = nil
+        completedSegments.removeAll()
+        currentSegments.removeAll()
+        lastPoint = nil
         setNeedsDisplay()
     }
 }

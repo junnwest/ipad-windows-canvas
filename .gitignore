@@ -16,7 +16,10 @@ Thumbs.db
 # Electron
 desktop/*.log
 
-# iOS
-ipad/NoteBridge/build/
-ipad/NoteBridge/DerivedData/
+# iOS / Xcode
+**/build/
+**/DerivedData/
 *.xcuserdata
+*.xcworkspace/xcuserdata/
+xcuserdata/
+*.xcworkspace/contents.xcworkspacedata

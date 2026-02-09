@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import Combine
 
 class DiscoveryService: ObservableObject {
     @Published var devices: [Device] = []

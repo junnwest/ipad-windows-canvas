@@ -42,10 +42,18 @@ struct ContentView: View {
 
                     Spacer()
                 }
+            } else if connection.isConnecting {
+                // Connecting state
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("Connecting...")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                }
             } else {
                 // Discovery mode
                 DeviceListView(discovery: discovery) { device in
-                    discovery.stop()
                     connection.connect(to: device)
                 }
             }

@@ -1,8 +1,10 @@
 import Foundation
 import Network
+import Combine
 
 class ConnectionService: ObservableObject {
     @Published var isConnected = false
+    @Published var isConnecting = false
     @Published var hostName = ""
     @Published var latency: Double = 0
 
@@ -14,10 +16,16 @@ class ConnectionService: ObservableObject {
 
     // Connect to a discovered device by resolving its Bonjour endpoint
     func connect(to device: Device) {
+        DispatchQueue.main.async {
+            self.isConnecting = true
+        }
+        print("[Connection] Resolving endpoint for: \(device.name)")
+
         // Resolve the Bonjour service to get IP and port
         let connection = NWConnection(to: device.endpoint, using: .tcp)
 
         connection.stateUpdateHandler = { [weak self] state in
+            print("[Connection] NWConnection state: \(state)")
             switch state {
             case .ready:
                 if let innerEndpoint = connection.currentPath?.remoteEndpoint,
@@ -27,11 +35,13 @@ class ConnectionService: ObservableObject {
                     case .ipv4(let addr):
                         hostStr = "\(addr)"
                     case .ipv6(let addr):
-                        hostStr = "\(addr)"
+                        // Wrap IPv6 in brackets for URL
+                        hostStr = "[\(addr)]"
                     default:
                         hostStr = "\(host)"
                     }
                     let portNum = port.rawValue
+                    print("[Connection] Resolved to \(hostStr):\(portNum)")
                     connection.cancel()
                     DispatchQueue.main.async {
                         self?.connectWebSocket(host: hostStr, port: Int(portNum))
@@ -40,6 +50,9 @@ class ConnectionService: ObservableObject {
             case .failed(let error):
                 print("[Connection] Resolve failed: \(error)")
                 connection.cancel()
+                DispatchQueue.main.async {
+                    self?.isConnecting = false
+                }
             default:
                 break
             }
@@ -52,14 +65,16 @@ class ConnectionService: ObservableObject {
         let urlString = "ws://\(host):\(port)"
         guard let url = URL(string: urlString) else {
             print("[Connection] Invalid URL: \(urlString)")
+            isConnecting = false
             return
         }
 
-        print("[Connection] Connecting to \(urlString)...")
+        print("[Connection] Connecting WebSocket to \(urlString)...")
         webSocket = session.webSocketTask(with: url)
         webSocket?.resume()
 
         isConnected = true
+        isConnecting = false
         receiveMessage()
         startHeartbeat()
     }
@@ -72,6 +87,7 @@ class ConnectionService: ObservableObject {
 
         DispatchQueue.main.async {
             self.isConnected = false
+            self.isConnecting = false
             self.hostName = ""
         }
     }
