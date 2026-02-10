@@ -14,6 +14,8 @@ class ConnectionService: ObservableObject {
     private var pointBuffer: [StrokePoint] = []
     private var currentStrokeId: String?
 
+    private var resolveConnection: NWConnection?
+
     // Connect to a discovered device by resolving its Bonjour endpoint
     func connect(to device: Device) {
         DispatchQueue.main.async {
@@ -22,12 +24,18 @@ class ConnectionService: ObservableObject {
         print("[Connection] Resolving endpoint for: \(device.name)")
 
         // Resolve the Bonjour service to get IP and port
-        let connection = NWConnection(to: device.endpoint, using: .tcp)
+        let params = NWParameters.tcp
+        params.requiredInterfaceType = .wifi
+        let connection = NWConnection(to: device.endpoint, using: params)
+        resolveConnection = connection
+        var resolved = false
 
         connection.stateUpdateHandler = { [weak self] state in
             print("[Connection] NWConnection state: \(state)")
             switch state {
             case .ready:
+                guard !resolved else { return }
+                resolved = true
                 if let innerEndpoint = connection.currentPath?.remoteEndpoint,
                    case .hostPort(let host, let port) = innerEndpoint {
                     let hostStr: String
@@ -35,7 +43,6 @@ class ConnectionService: ObservableObject {
                     case .ipv4(let addr):
                         hostStr = "\(addr)"
                     case .ipv6(let addr):
-                        // Wrap IPv6 in brackets for URL
                         hostStr = "[\(addr)]"
                     default:
                         hostStr = "\(host)"
@@ -43,6 +50,7 @@ class ConnectionService: ObservableObject {
                     let portNum = port.rawValue
                     print("[Connection] Resolved to \(hostStr):\(portNum)")
                     connection.cancel()
+                    self?.resolveConnection = nil
                     DispatchQueue.main.async {
                         self?.connectWebSocket(host: hostStr, port: Int(portNum))
                     }
@@ -50,6 +58,7 @@ class ConnectionService: ObservableObject {
             case .failed(let error):
                 print("[Connection] Resolve failed: \(error)")
                 connection.cancel()
+                self?.resolveConnection = nil
                 DispatchQueue.main.async {
                     self?.isConnecting = false
                 }
@@ -59,6 +68,29 @@ class ConnectionService: ObservableObject {
         }
 
         connection.start(queue: .global())
+
+        // Timeout: if NWConnection doesn't resolve in 5 seconds,
+        // try connecting directly using the service name as hostname
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard !resolved else { return }
+            resolved = true
+            print("[Connection] NWConnection timed out, trying direct hostname...")
+            connection.cancel()
+            self?.resolveConnection = nil
+
+            // Extract hostname from Bonjour service name and try .local resolution
+            if case .service(let name, _, _, _) = device.endpoint {
+                // The mDNS service name format is "iPad-Canvas-{hostname}"
+                // Try connecting via the service's hostname on port 8080
+                let hostname = name
+                    .replacingOccurrences(of: "iPad-Canvas-", with: "")
+                    .replacingOccurrences(of: "-", with: ".")
+                print("[Connection] Trying hostname: \(hostname).local")
+                DispatchQueue.main.async {
+                    self?.connectWebSocket(host: "\(hostname).local", port: 8080)
+                }
+            }
+        }
     }
 
     private func connectWebSocket(host: String, port: Int) {
