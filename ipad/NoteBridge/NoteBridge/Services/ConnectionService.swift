@@ -81,10 +81,8 @@ class ConnectionService: ObservableObject {
             // Extract hostname from Bonjour service name and try .local resolution
             if case .service(let name, _, _, _) = device.endpoint {
                 // The mDNS service name format is "iPad-Canvas-{hostname}"
-                // Try connecting via the service's hostname on port 8080
-                let hostname = name
-                    .replacingOccurrences(of: "iPad-Canvas-", with: "")
-                    .replacingOccurrences(of: "-", with: ".")
+                // Keep the hostname exactly as-is (Windows hostnames have dashes)
+                let hostname = name.replacingOccurrences(of: "iPad-Canvas-", with: "")
                 print("[Connection] Trying hostname: \(hostname).local")
                 DispatchQueue.main.async {
                     self?.connectWebSocket(host: "\(hostname).local", port: 8080)
