@@ -32,3 +32,19 @@ struct WelcomeMessage: Codable {
     let version: String
     let timestamp: Double
 }
+
+// Received from desktop when page state changes
+struct PageStateMessage: Codable {
+    let type: String
+    let currentPage: Int
+    let pageCount: Int
+}
+
+// Outgoing: undo, redo, page_switch, page_add, erase_at
+// Note: page_switch uses "page" to match desktop websocket.js handler
+struct ActionMessage: Codable {
+    let type: String
+    var page: Int?      // page_switch index
+    var x: Double?      // erase_at normalized x
+    var y: Double?      // erase_at normalized y
+}

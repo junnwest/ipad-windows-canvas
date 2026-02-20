@@ -3,17 +3,23 @@ import UIKit
 class DrawingCanvasView: UIView {
 
     var connectionService: ConnectionService?
+    var toolState: ToolState?
 
-    // Local drawing state - store individual segments with pressure
+    // Local preview strokes (iPad-side only; desktop holds the authoritative state)
     private struct Segment {
         let from: CGPoint
         let to: CGPoint
         let width: CGFloat
+        let color: UIColor
     }
     private var completedSegments: [Segment] = []
-    private var currentSegments: [Segment] = []
+    private var currentSegments:   [Segment] = []
     private var lastPoint: CGPoint?
     private var currentStrokeId: String?
+
+    // Eraser: just track cursor position for visual feedback
+    private var eraserPoint: CGPoint?
+    private let eraserRadius: CGFloat = 20
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -33,107 +39,136 @@ class DrawingCanvasView: UIView {
         guard let touch = touches.first else { return }
         let location = touch.location(in: self)
 
-        // Start a new stroke
-        let strokeId = UUID().uuidString
-        currentStrokeId = strokeId
-        connectionService?.beginStroke(id: strokeId)
-
-        lastPoint = location
-        currentSegments = []
-
-        // Send first point
-        sendPoint(touch: touch)
+        if toolState?.currentTool == "eraser" {
+            eraserPoint = location
+            setNeedsDisplay()
+            sendEraseAt(location)
+        } else {
+            let id = UUID().uuidString
+            currentStrokeId = id
+            connectionService?.beginStroke(id: id)
+            lastPoint = location
+            currentSegments = []
+            sendStrokePoint(touch)
+        }
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first, let prev = lastPoint else { return }
+        guard let touch = touches.first else { return }
 
-        // Use coalesced touches for smoother lines
-        let coalescedTouches = event?.coalescedTouches(for: touch) ?? [touch]
-        var from = prev
-
-        for coalescedTouch in coalescedTouches {
-            let location = coalescedTouch.location(in: self)
-            let pressure = coalescedTouch.force > 0 ? coalescedTouch.force / coalescedTouch.maximumPossibleForce : 0.5
-            let width = max(0.5, 3.0 * pressure)
-
-            currentSegments.append(Segment(from: from, to: location, width: width))
-            from = location
-            sendPoint(touch: coalescedTouch)
+        if toolState?.currentTool == "eraser" {
+            let coalescedTouches = event?.coalescedTouches(for: touch) ?? [touch]
+            for ct in coalescedTouches { sendEraseAt(ct.location(in: self)) }
+            eraserPoint = touch.location(in: self)
+            setNeedsDisplay()
+        } else {
+            guard let prev = lastPoint else { return }
+            let coalescedTouches = event?.coalescedTouches(for: touch) ?? [touch]
+            let strokeColor = UIColor(hex: toolState?.currentColor ?? "#000000")
+            let baseWidth   = CGFloat(toolState?.currentSize ?? 2.0)
+            var from = prev
+            for ct in coalescedTouches {
+                let loc      = ct.location(in: self)
+                let pressure = ct.force > 0 ? ct.force / ct.maximumPossibleForce : 0.5
+                let width    = max(0.5, baseWidth * pressure)
+                currentSegments.append(Segment(from: from, to: loc, width: width, color: strokeColor))
+                from = loc
+                sendStrokePoint(ct)
+            }
+            lastPoint = from
+            setNeedsDisplay()
         }
-
-        lastPoint = from
-        setNeedsDisplay()
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
 
-        // Add final segment
-        if let prev = lastPoint {
-            let location = touch.location(in: self)
-            let pressure = touch.force > 0 ? touch.force / touch.maximumPossibleForce : 0.5
-            let width = max(0.5, 3.0 * pressure)
-            currentSegments.append(Segment(from: prev, to: location, width: width))
+        if toolState?.currentTool == "eraser" {
+            eraserPoint = nil
+            setNeedsDisplay()
+        } else {
+            if let prev = lastPoint {
+                let loc      = touch.location(in: self)
+                let pressure = touch.force > 0 ? touch.force / touch.maximumPossibleForce : 0.5
+                let strokeColor = UIColor(hex: toolState?.currentColor ?? "#000000")
+                let baseWidth   = CGFloat(toolState?.currentSize ?? 2.0)
+                currentSegments.append(Segment(from: prev, to: loc, width: max(0.5, baseWidth * pressure), color: strokeColor))
+            }
+            sendStrokePoint(touch)
+            connectionService?.endStroke()
+            completedSegments.append(contentsOf: currentSegments)
+            currentSegments = []
+            lastPoint = nil
+            currentStrokeId = nil
+            setNeedsDisplay()
         }
-
-        sendPoint(touch: touch)
-        connectionService?.endStroke()
-
-        // Move current segments to completed
-        completedSegments.append(contentsOf: currentSegments)
-        currentSegments = []
-        lastPoint = nil
-        currentStrokeId = nil
-        setNeedsDisplay()
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        connectionService?.endStroke()
-        completedSegments.append(contentsOf: currentSegments)
-        currentSegments = []
-        lastPoint = nil
-        currentStrokeId = nil
+        if toolState?.currentTool == "eraser" {
+            eraserPoint = nil
+        } else {
+            connectionService?.endStroke()
+            completedSegments.append(contentsOf: currentSegments)
+            currentSegments = []
+            lastPoint = nil
+            currentStrokeId = nil
+        }
         setNeedsDisplay()
     }
 
-    // MARK: - Send to Windows
+    // MARK: - Send helpers
 
-    private func sendPoint(touch: UITouch) {
-        let location = touch.location(in: self)
-
-        // Normalize to 0-1 range for transmission
-        let x = Double(location.x / bounds.width)
-        let y = Double(location.y / bounds.height)
-
-        // Get pressure (Apple Pencil provides this; finger defaults to ~0.5)
-        let rawPressure = touch.force > 0 ? touch.force / touch.maximumPossibleForce : 0.5
-        let pressure = Double(max(0.1, rawPressure))
-
-        let point = StrokePoint(
-            x: x,
-            y: y,
-            pressure: pressure,
+    private func sendStrokePoint(_ touch: UITouch) {
+        let loc      = touch.location(in: self)
+        let pressure = touch.force > 0 ? touch.force / touch.maximumPossibleForce : 0.5
+        connectionService?.addPoint(StrokePoint(
+            x:         Double(loc.x / bounds.width),
+            y:         Double(loc.y / bounds.height),
+            pressure:  Double(max(0.1, pressure)),
             timestamp: Date().timeIntervalSince1970 * 1000
-        )
+        ))
+    }
 
-        connectionService?.addPoint(point)
+    private func sendEraseAt(_ location: CGPoint) {
+        connectionService?.sendEraseAt(
+            x: Double(location.x / bounds.width),
+            y: Double(location.y / bounds.height)
+        )
     }
 
     // MARK: - Drawing
 
     override func draw(_ rect: CGRect) {
-        UIColor.black.setStroke()
-
-        let allSegments = completedSegments + currentSegments
-        for seg in allSegments {
+        for seg in completedSegments + currentSegments {
+            seg.color.setStroke()
             let path = UIBezierPath()
-            path.lineCapStyle = .round
+            path.lineCapStyle  = .round
+            path.lineJoinStyle = .round
             path.move(to: seg.from)
             path.addLine(to: seg.to)
             path.lineWidth = seg.width
             path.stroke()
         }
+
+        // Eraser cursor: translucent red ring
+        if let ep = eraserPoint {
+            let r    = eraserRadius
+            let ring = UIBezierPath(ovalIn: CGRect(x: ep.x - r, y: ep.y - r, width: r * 2, height: r * 2))
+            UIColor.systemRed.withAlphaComponent(0.55).setStroke()
+            ring.lineWidth = 1.5
+            ring.stroke()
+        }
+    }
+
+    // MARK: - Page switch: clear local preview
+
+    func clearForPageSwitch() {
+        completedSegments.removeAll()
+        currentSegments.removeAll()
+        lastPoint = nil
+        eraserPoint = nil
+        setNeedsDisplay()
     }
 
     func clear() {
@@ -141,5 +176,21 @@ class DrawingCanvasView: UIView {
         currentSegments.removeAll()
         lastPoint = nil
         setNeedsDisplay()
+    }
+}
+
+// MARK: - UIColor from hex
+
+extension UIColor {
+    convenience init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        self.init(
+            red:   CGFloat((int >> 16) & 0xFF) / 255,
+            green: CGFloat((int >> 8)  & 0xFF) / 255,
+            blue:  CGFloat( int        & 0xFF) / 255,
+            alpha: 1
+        )
     }
 }

@@ -7,6 +7,11 @@ class ConnectionService: ObservableObject {
     @Published var isConnecting = false
     @Published var hostName = ""
     @Published var latency: Double = 0
+    @Published var currentPage: Int = 0
+    @Published var pageCount: Int = 1
+
+    // Set by ContentView so stroke messages carry the selected tool/color/size
+    var toolState: ToolState?
 
     private var webSocket: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
@@ -16,14 +21,14 @@ class ConnectionService: ObservableObject {
 
     private var resolveConnection: NWConnection?
 
-    // Connect to a discovered device by resolving its Bonjour endpoint
+    // MARK: - Connect
+
     func connect(to device: Device) {
         DispatchQueue.main.async {
             self.isConnecting = true
         }
         print("[Connection] Resolving endpoint for: \(device.name)")
 
-        // Resolve the Bonjour service to get IP and port
         let params = NWParameters.tcp
         params.requiredInterfaceType = .wifi
         let connection = NWConnection(to: device.endpoint, using: params)
@@ -40,28 +45,22 @@ class ConnectionService: ObservableObject {
                    case .hostPort(let host, let port) = innerEndpoint {
                     let hostStr: String
                     switch host {
-                    case .ipv4(let addr):
-                        hostStr = "\(addr)"
-                    case .ipv6(let addr):
-                        hostStr = "[\(addr)]"
-                    default:
-                        hostStr = "\(host)"
+                    case .ipv4(let addr): hostStr = "\(addr)"
+                    case .ipv6(let addr): hostStr = "[\(addr)]"
+                    default:              hostStr = "\(host)"
                     }
-                    let portNum = port.rawValue
-                    print("[Connection] Resolved to \(hostStr):\(portNum)")
+                    print("[Connection] Resolved to \(hostStr):\(port.rawValue)")
                     connection.cancel()
                     self?.resolveConnection = nil
                     DispatchQueue.main.async {
-                        self?.connectWebSocket(host: hostStr, port: Int(portNum))
+                        self?.connectWebSocket(host: hostStr, port: Int(port.rawValue))
                     }
                 }
             case .failed(let error):
                 print("[Connection] Resolve failed: \(error)")
                 connection.cancel()
                 self?.resolveConnection = nil
-                DispatchQueue.main.async {
-                    self?.isConnecting = false
-                }
+                DispatchQueue.main.async { self?.isConnecting = false }
             default:
                 break
             }
@@ -69,19 +68,14 @@ class ConnectionService: ObservableObject {
 
         connection.start(queue: .global())
 
-        // Timeout: if NWConnection doesn't resolve in 5 seconds,
-        // try connecting directly using the service name as hostname
+        // Timeout fallback: try service name as .local hostname
         DispatchQueue.global().asyncAfter(deadline: .now() + 5) { [weak self] in
             guard !resolved else { return }
             resolved = true
             print("[Connection] NWConnection timed out, trying direct hostname...")
             connection.cancel()
             self?.resolveConnection = nil
-
-            // Extract hostname from Bonjour service name and try .local resolution
             if case .service(let name, _, _, _) = device.endpoint {
-                // The mDNS service name format is "iPad-Canvas-{hostname}"
-                // Keep the hostname exactly as-is (Windows hostnames have dashes)
                 let hostname = name.replacingOccurrences(of: "iPad-Canvas-", with: "")
                 print("[Connection] Trying hostname: \(hostname).local")
                 DispatchQueue.main.async {
@@ -98,11 +92,9 @@ class ConnectionService: ObservableObject {
             isConnecting = false
             return
         }
-
         print("[Connection] Connecting WebSocket to \(urlString)...")
         webSocket = session.webSocketTask(with: url)
         webSocket?.resume()
-
         isConnected = true
         isConnecting = false
         receiveMessage()
@@ -114,11 +106,12 @@ class ConnectionService: ObservableObject {
         heartbeatTimer = nil
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
-
         DispatchQueue.main.async {
             self.isConnected = false
             self.isConnecting = false
             self.hostName = ""
+            self.currentPage = 0
+            self.pageCount = 1
         }
     }
 
@@ -131,40 +124,42 @@ class ConnectionService: ObservableObject {
 
     func addPoint(_ point: StrokePoint) {
         pointBuffer.append(point)
-
-        // Send in batches of 3-5 points for efficiency
-        if pointBuffer.count >= 4 {
-            flushPoints()
-        }
+        if pointBuffer.count >= 4 { flushPoints() }
     }
 
     func endStroke() {
-        // Send remaining points
         flushPoints()
-
-        // Send stroke_complete
         if let id = currentStrokeId {
-            let msg = SimpleMessage(type: "stroke_complete", strokeId: id)
-            sendCodable(msg)
+            sendCodable(SimpleMessage(type: "stroke_complete", strokeId: id))
         }
-
         currentStrokeId = nil
     }
 
     private func flushPoints() {
         guard let id = currentStrokeId, !pointBuffer.isEmpty else { return }
-
         let strokeData = StrokeData(
             id: id,
             points: pointBuffer,
-            color: "#000000",
-            width: 2.0,
-            tool: "pen"
+            color: toolState?.currentColor ?? "#000000",
+            width: toolState?.currentSize ?? 2.0,
+            tool: toolState?.currentTool ?? "pen"
         )
-
-        let message = StrokeMessage(type: "stroke_update", stroke: strokeData)
-        sendCodable(message)
+        sendCodable(StrokeMessage(type: "stroke_update", stroke: strokeData))
         pointBuffer.removeAll()
+    }
+
+    // MARK: - Action Sending
+
+    func sendUndo()    { sendCodable(ActionMessage(type: "undo")) }
+    func sendRedo()    { sendCodable(ActionMessage(type: "redo")) }
+    func sendPageAdd() { sendCodable(ActionMessage(type: "page_add")) }
+
+    func sendPageSwitch(to index: Int) {
+        sendCodable(ActionMessage(type: "page_switch", page: index))
+    }
+
+    func sendEraseAt(x: Double, y: Double) {
+        sendCodable(ActionMessage(type: "erase_at", x: x, y: y))
     }
 
     // MARK: - Messaging
@@ -172,11 +167,8 @@ class ConnectionService: ObservableObject {
     private func sendCodable<T: Codable>(_ value: T) {
         guard let data = try? JSONEncoder().encode(value),
               let string = String(data: data, encoding: .utf8) else { return }
-
         webSocket?.send(.string(string)) { error in
-            if let error = error {
-                print("[Connection] Send error: \(error)")
-            }
+            if let error = error { print("[Connection] Send error: \(error)") }
         }
     }
 
@@ -184,20 +176,11 @@ class ConnectionService: ObservableObject {
         webSocket?.receive { [weak self] result in
             switch result {
             case .success(let message):
-                switch message {
-                case .string(let text):
-                    self?.handleMessage(text)
-                default:
-                    break
-                }
-                // Keep listening
+                if case .string(let text) = message { self?.handleMessage(text) }
                 self?.receiveMessage()
-
             case .failure(let error):
                 print("[Connection] Receive error: \(error)")
-                DispatchQueue.main.async {
-                    self?.isConnected = false
-                }
+                DispatchQueue.main.async { self?.isConnected = false }
             }
         }
     }
@@ -205,23 +188,28 @@ class ConnectionService: ObservableObject {
     private func handleMessage(_ text: String) {
         guard let data = text.data(using: .utf8) else { return }
 
-        // Try parsing as welcome message
-        if let welcome = try? JSONDecoder().decode(WelcomeMessage.self, from: data) {
+        // page_state — desktop tells iPad current page and total count
+        if let ps = try? JSONDecoder().decode(PageStateMessage.self, from: data),
+           ps.type == "page_state" {
             DispatchQueue.main.async {
-                self.hostName = welcome.deviceName
+                self.currentPage = ps.currentPage
+                self.pageCount   = ps.pageCount
             }
+            return
+        }
+
+        // welcome
+        if let welcome = try? JSONDecoder().decode(WelcomeMessage.self, from: data) {
+            DispatchQueue.main.async { self.hostName = welcome.deviceName }
             print("[Connection] Connected to: \(welcome.deviceName)")
             return
         }
 
-        // Try parsing as pong (latency response)
+        // pong (latency)
         if let pong = try? JSONDecoder().decode(SimpleMessage.self, from: data),
-           pong.type == "pong",
-           let timestamp = pong.timestamp {
-            let latencyMs = (Date().timeIntervalSince1970 * 1000) - timestamp
-            DispatchQueue.main.async {
-                self.latency = latencyMs
-            }
+           pong.type == "pong", let ts = pong.timestamp {
+            let latencyMs = (Date().timeIntervalSince1970 * 1000) - ts
+            DispatchQueue.main.async { self.latency = latencyMs }
         }
     }
 
@@ -229,11 +217,10 @@ class ConnectionService: ObservableObject {
 
     private func startHeartbeat() {
         heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-            let ping = SimpleMessage(
+            self?.sendCodable(SimpleMessage(
                 type: "ping",
                 timestamp: Date().timeIntervalSince1970 * 1000
-            )
-            self?.sendCodable(ping)
+            ))
         }
     }
 }

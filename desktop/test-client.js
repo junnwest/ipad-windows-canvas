@@ -68,6 +68,12 @@ function simulateStroke() {
     }, batch * 16);
   }
 
+  // Send stroke_complete after all batches
+  setTimeout(() => {
+    ws.send(JSON.stringify({ type: 'stroke_complete', strokeId }));
+    console.log('  Line stroke complete');
+  }, numPoints * 16 + 100);
+
   // After the line, draw a circle
   setTimeout(() => simulateCircle(), 1500);
 }
@@ -100,6 +106,10 @@ function simulateCircle() {
       tool: 'pen',
     },
   }));
+
+  // Send stroke_complete for circle
+  ws.send(JSON.stringify({ type: 'stroke_complete', strokeId }));
+  console.log('  Circle stroke complete');
 
   // Ping test for latency
   setTimeout(() => {

@@ -4,7 +4,8 @@
       "Bash(powershell -Command:*)",
       "Bash(\"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" install)",
       "Bash(cmd /c \"set PATH=C:\\\\Program Files\\\\nodejs;%PATH% && cd /d \"\"c:\\\\Users\\\\Kenneth\\\\Desktop\\\\Kenneth\\\\App Dev\\\\ipad-windows-canvas\\\\desktop\"\" && npm install\")",
-      "Bash(powershell -ExecutionPolicy Bypass -File:*)"
+      "Bash(powershell -ExecutionPolicy Bypass -File:*)",
+      "Bash(npm install:*)"
     ]
   }
 }

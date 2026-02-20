@@ -1,18 +1,24 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var discovery = DiscoveryService()
+    @StateObject private var discovery  = DiscoveryService()
     @StateObject private var connection = ConnectionService()
+    @StateObject private var toolState  = ToolState()
+
+    // Reference to the canvas so we can clear it on page switch
+    @State private var canvasView: DrawingCanvasView? = nil
 
     var body: some View {
         ZStack {
             if connection.isConnected {
-                // Drawing mode
-                CanvasViewRepresentable(connectionService: connection)
+                // Full-screen canvas
+                CanvasViewRepresentable(connectionService: connection, toolState: toolState)
                     .ignoresSafeArea()
+                    .onAppear { /* canvas ref set via coordinator if needed */ }
 
-                // Status overlay (top)
-                VStack {
+                // Top status bar + bottom toolbar overlay
+                VStack(spacing: 0) {
+                    // Status bar
                     HStack {
                         Circle()
                             .fill(.green)
@@ -20,15 +26,12 @@ struct ContentView: View {
                         Text(connection.hostName)
                             .font(.caption)
                             .foregroundColor(.secondary)
-
                         if connection.latency > 0 {
                             Text("\(Int(connection.latency))ms")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
-
                         Spacer()
-
                         Button("Disconnect") {
                             connection.disconnect()
                             discovery.start()
@@ -41,26 +44,28 @@ struct ContentView: View {
                     .background(.ultraThinMaterial)
 
                     Spacer()
+
+                    // Tool + page toolbar
+                    ToolbarView(toolState: toolState, connection: connection)
                 }
+
             } else if connection.isConnecting {
-                // Connecting state
                 VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.5)
+                    ProgressView().scaleEffect(1.5)
                     Text("Connecting...")
                         .font(.title2)
                         .foregroundColor(.secondary)
                 }
             } else {
-                // Discovery mode
                 DeviceListView(discovery: discovery) { device in
+                    // Wire toolState into connection before connecting
+                    connection.toolState = toolState
                     connection.connect(to: device)
                 }
             }
         }
         .onAppear {
             discovery.start()
-            // Keep screen on while app is active
             UIApplication.shared.isIdleTimerDisabled = true
         }
         .onDisappear {

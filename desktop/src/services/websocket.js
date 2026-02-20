@@ -6,8 +6,14 @@ class CanvasServer {
   constructor() {
     this.wss = null;
     this.clients = new Set();
-    this.onStrokeUpdate = null;   // callback: (strokeData) => void
-    this.onClientChange = null;   // callback: (count, deviceName) => void
+    this.onStrokeUpdate = null;    // callback: (strokeData) => void
+    this.onStrokeComplete = null;  // callback: (strokeId) => void
+    this.onUndo = null;            // callback: () => void
+    this.onRedo = null;            // callback: () => void
+    this.onEraseAt = null;         // callback: (x, y) => void
+    this.onPageSwitch = null;      // callback: (index) => void
+    this.onPageAdd = null;         // callback: () => void
+    this.onClientChange = null;    // callback: (count, deviceName) => void
   }
 
   start(port = config.WEBSOCKET_PORT) {
@@ -76,8 +82,33 @@ class CanvasServer {
           break;
 
         case 'stroke_complete':
-          // Future: finalize stroke in storage
-          logger.debug('Stroke complete:', message.strokeId);
+          if (this.onStrokeComplete && message.strokeId) {
+            this.onStrokeComplete(message.strokeId);
+          }
+          break;
+
+        case 'undo':
+          if (this.onUndo) this.onUndo();
+          break;
+
+        case 'redo':
+          if (this.onRedo) this.onRedo();
+          break;
+
+        case 'erase_at':
+          if (this.onEraseAt && message.x != null && message.y != null) {
+            this.onEraseAt(message.x, message.y);
+          }
+          break;
+
+        case 'page_switch':
+          if (this.onPageSwitch && message.page != null) {
+            this.onPageSwitch(message.page);
+          }
+          break;
+
+        case 'page_add':
+          if (this.onPageAdd) this.onPageAdd();
           break;
 
         default:

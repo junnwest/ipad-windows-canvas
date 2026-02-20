@@ -4,21 +4,140 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
-  <title>iPad Canvas Desktop</title>
+  <title>NoteBridge</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="toolbar">
-    <span id="app-title">iPad Canvas</span>
+    <span id="app-title">NoteBridge</span>
+    <span id="notebook-name"></span>
+    <span id="save-status"></span>
     <div id="toolbar-right">
+      <button id="notebooks-btn" class="toolbar-btn" title="Manage Notebooks">Notebooks</button>
+      <span class="toolbar-separator"></span>
+      <button id="undo-btn" class="toolbar-btn" title="Undo (Ctrl+Z)" disabled>Undo</button>
+      <button id="redo-btn" class="toolbar-btn" title="Redo (Ctrl+Shift+Z)" disabled>Redo</button>
+      <span class="toolbar-separator"></span>
       <span id="connection-status" class="status-disconnected">No iPad Connected</span>
-      <button id="clear-btn" title="Clear Canvas">Clear</button>
+      <button id="clear-btn" class="toolbar-btn" title="Clear Canvas">Clear</button>
+      <span class="toolbar-separator"></span>
+      <button id="export-pdf-btn" class="toolbar-btn" title="Export to PDF">Export PDF</button>
     </div>
   </div>
+
+  <div id="tool-bar">
+    <div id="tool-selector">
+      <button class="tool-btn active" data-tool="pen" title="Pen (P)">Pen</button>
+      <button class="tool-btn" data-tool="eraser" title="Eraser (E)">Eraser</button>
+    </div>
+    <span class="toolbar-separator"></span>
+    <div id="color-palette"></div>
+    <span class="toolbar-separator"></span>
+    <div id="size-selector"></div>
+  </div>
+
   <div id="canvas-container">
     <canvas id="canvas"></canvas>
   </div>
+
+  <div id="page-bar">
+    <button id="prev-page-btn" class="page-btn" title="Previous Page">&#8249;</button>
+    <span id="page-indicator">Page 1 / 1</span>
+    <button id="next-page-btn" class="page-btn" title="Next Page">&#8250;</button>
+    <span class="page-bar-sep"></span>
+    <button id="pages-btn" class="page-btn" title="View all pages">&#9633; Pages</button>
+    <div class="add-page-group">
+      <button id="add-page-btn" class="page-btn" title="Add page (same template as last page)">+ Add Page</button>
+      <button id="add-page-dropdown-btn" class="page-btn page-btn-caret" title="Add page with custom size &amp; template">&#9660;</button>
+    </div>
+  </div>
+
+  <!-- Notebook management modal -->
+  <div id="notebook-modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Notebooks</span>
+        <button id="notebook-modal-close" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <button id="notebook-new-btn" class="notebook-new-btn">+ New Notebook</button>
+        <div id="notebook-list-grid" class="notebook-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pages overview modal -->
+  <div id="pages-overview-overlay" class="modal-overlay hidden">
+    <div class="modal pages-overview-modal">
+      <div class="modal-header">
+        <span class="modal-title">Pages</span>
+        <button id="pages-overview-close" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body pages-overview-body">
+        <button id="pages-add-btn" class="notebook-new-btn">+ Add Page</button>
+        <div id="pages-grid" class="pages-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page setup modal (size + template) -->
+  <div id="page-setup-overlay" class="modal-overlay hidden">
+    <div class="modal page-setup-modal">
+      <div class="modal-header">
+        <span id="page-setup-title" class="modal-title">New Notebook</span>
+        <button id="page-setup-close-btn" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="page-setup-name-row" class="ps-field-row">
+          <label class="ps-label">Name</label>
+          <input id="page-setup-name" type="text" class="notebook-new-input" placeholder="Notebook name…">
+        </div>
+        <div class="ps-field-row">
+          <label class="ps-label">Page Size</label>
+          <div class="ps-size-grid">
+            <button class="ps-size-btn active" data-size="a4-landscape">
+              <span class="ps-size-icon ps-landscape"></span>A4 Landscape
+            </button>
+            <button class="ps-size-btn" data-size="a4-portrait">
+              <span class="ps-size-icon ps-portrait"></span>A4 Portrait
+            </button>
+            <button class="ps-size-btn" data-size="letter-landscape">
+              <span class="ps-size-icon ps-landscape"></span>Letter Landscape
+            </button>
+            <button class="ps-size-btn" data-size="letter-portrait">
+              <span class="ps-size-icon ps-portrait"></span>Letter Portrait
+            </button>
+            <button class="ps-size-btn" data-size="square">
+              <span class="ps-size-icon ps-square"></span>Square
+            </button>
+          </div>
+        </div>
+        <div class="ps-field-row">
+          <label class="ps-label">Template</label>
+          <div class="ps-template-grid">
+            <button class="ps-template-btn active" data-template="blank">Blank</button>
+            <button class="ps-template-btn" data-template="dotted">Dotted</button>
+            <button class="ps-template-btn" data-template="squared">Squared</button>
+            <button class="ps-template-btn" data-template="ruled-narrow">Ruled</button>
+            <button class="ps-template-btn" data-template="cornell">Cornell</button>
+            <button class="ps-template-btn" data-template="three-column">3 Column</button>
+          </div>
+        </div>
+        <div class="ps-actions">
+          <button id="page-setup-cancel" class="notebook-form-btn cancel">Cancel</button>
+          <button id="page-setup-confirm" class="notebook-form-btn">Create</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="history.js"></script>
+  <script src="tools.js"></script>
   <script src="canvas.js"></script>
+  <script src="notebook.js"></script>
+  <script src="notebook-list.js"></script>
+  <script src="page-setup.js"></script>
+  <script src="pages-overview.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
