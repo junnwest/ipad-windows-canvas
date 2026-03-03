@@ -1,6 +1,7 @@
 import Foundation
 import Network
 import Combine
+import UIKit
 
 class ConnectionService: ObservableObject {
     @Published var isConnected = false
@@ -12,6 +13,14 @@ class ConnectionService: ObservableObject {
 
     // Set by ContentView so stroke messages carry the selected tool/color/size
     var toolState: ToolState?
+
+    // Called on main thread whenever desktop sends a full page_state update
+    var onPageState: ((PageStateMessage) -> Void)?
+
+    // Share: set by CanvasViewRepresentable; call to capture current page as UIImage
+    var capturePageImage: (() -> UIImage?)? = nil
+    // Published so ContentView can observe and show the share sheet
+    @Published var shareImage: UIImage? = nil
 
     private var webSocket: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
@@ -188,12 +197,13 @@ class ConnectionService: ObservableObject {
     private func handleMessage(_ text: String) {
         guard let data = text.data(using: .utf8) else { return }
 
-        // page_state — desktop tells iPad current page and total count
+        // page_state — full sync: strokes + layout config + page position
         if let ps = try? JSONDecoder().decode(PageStateMessage.self, from: data),
            ps.type == "page_state" {
             DispatchQueue.main.async {
                 self.currentPage = ps.currentPage
                 self.pageCount   = ps.pageCount
+                self.onPageState?(ps)
             }
             return
         }

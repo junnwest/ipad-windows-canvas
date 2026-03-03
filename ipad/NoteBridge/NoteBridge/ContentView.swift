@@ -5,16 +5,13 @@ struct ContentView: View {
     @StateObject private var connection = ConnectionService()
     @StateObject private var toolState  = ToolState()
 
-    // Reference to the canvas so we can clear it on page switch
-    @State private var canvasView: DrawingCanvasView? = nil
-
     var body: some View {
         ZStack {
             if connection.isConnected {
-                // Full-screen canvas
-                CanvasViewRepresentable(connectionService: connection, toolState: toolState)
+                // Full-screen canvas — currentPage passed so updateUIView clears on switch
+                CanvasViewRepresentable(connectionService: connection, toolState: toolState,
+                                        currentPage: connection.currentPage)
                     .ignoresSafeArea()
-                    .onAppear { /* canvas ref set via coordinator if needed */ }
 
                 // Top status bar + bottom toolbar overlay
                 VStack(spacing: 0) {
@@ -72,6 +69,14 @@ struct ContentView: View {
             discovery.stop()
             connection.disconnect()
             UIApplication.shared.isIdleTimerDisabled = false
+        }
+        .sheet(isPresented: Binding(
+            get: { connection.shareImage != nil },
+            set: { if !$0 { connection.shareImage = nil } }
+        )) {
+            if let img = connection.shareImage {
+                ActivityView(activityItems: [img])
+            }
         }
     }
 }

@@ -51,6 +51,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('notebook-loaded', (_event, notebook) => callback(notebook));
   },
 
+  // Image insertion
+  insertImage: () => ipcRenderer.invoke('insert-image'),
+
   // PDF export
   exportPDF: (notebookData) => ipcRenderer.invoke('export-pdf', notebookData),
 });

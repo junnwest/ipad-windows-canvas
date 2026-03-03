@@ -7,14 +7,17 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "build": "electron-builder",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "echo \"No tests yet\" && exit 0",
+    "rebuild-native": "electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {
+    "better-sqlite3": "^12.6.2",
     "bonjour-service": "^1.2.1",
     "pdfkit": "^0.17.2",
     "ws": "^8.16.0"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
     "electron": "^40.2.1",
     "electron-builder": "^25.1.0"
   },

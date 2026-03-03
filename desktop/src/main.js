@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, nativeImage } = require('electron');
 const path = require('path');
 const logger = require('./utils/logger');
 const DiscoveryService = require('./services/discovery');
@@ -177,6 +177,32 @@ ipcMain.handle('rename-notebook', async (_event, { id, newName }) => {
 ipcMain.handle('delete-notebook', async (_event, id) => {
   await storage.deleteNotebook(id);
   return true;
+});
+
+// Image insertion
+ipcMain.handle('insert-image', async () => {
+  const { filePaths, canceled } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Insert Image',
+    filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'] }],
+    properties: ['openFile'],
+  });
+  if (canceled || !filePaths || !filePaths[0]) return null;
+
+  let img = nativeImage.createFromPath(filePaths[0]);
+  if (img.isEmpty()) return null;
+
+  // Downscale to max 1 200 px on the longest side to keep file sizes manageable
+  const { width, height } = img.getSize();
+  const MAX = 1200;
+  if (width > MAX || height > MAX) {
+    const scale = MAX / Math.max(width, height);
+    img = img.resize({ width: Math.round(width * scale), height: Math.round(height * scale) });
+  }
+
+  const buf = img.toJPEG(85);
+  const src = 'data:image/jpeg;base64,' + buf.toString('base64');
+  const finalSize = img.getSize();
+  return { src, width: finalSize.width, height: finalSize.height };
 });
 
 // PDF export

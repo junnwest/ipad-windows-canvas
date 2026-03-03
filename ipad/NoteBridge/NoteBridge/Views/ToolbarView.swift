@@ -69,6 +69,15 @@ struct ToolbarView: View {
 
                 IconBtn(systemImage: "plus", label: "Add page") { connection.sendPageAdd() }
             }
+
+            ToolDivider()
+
+            // Share current page as image
+            IconBtn(systemImage: "square.and.arrow.up", label: "Share") {
+                if let img = connection.capturePageImage?() {
+                    connection.shareImage = img
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

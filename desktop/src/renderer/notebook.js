@@ -14,7 +14,7 @@ class NotebookManager {
       page ? (page.pageSize || DEFAULT_PAGE_SIZE) : DEFAULT_PAGE_SIZE,
       page ? (page.template || DEFAULT_TEMPLATE)  : DEFAULT_TEMPLATE,
     );
-    this.renderer.importPageData(page ? (page.strokes || []) : []);
+    this.renderer.importPageData(page ? (page.strokes || []) : [], page ? (page.texts || []) : [], page ? (page.images || []) : []);
     this._notify();
   }
 
@@ -39,7 +39,7 @@ class NotebookManager {
       page.pageSize || DEFAULT_PAGE_SIZE,
       page.template || DEFAULT_TEMPLATE,
     );
-    this.renderer.importPageData(page.strokes || []);
+    this.renderer.importPageData(page.strokes || [], page.texts || [], page.images || []);
     this._notify();
   }
 
@@ -56,13 +56,15 @@ class NotebookManager {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
       index: this.notebook.pages.length,
       strokes: [],
+      texts: [],
+      images: [],
       pageSize: resolvedSize,
       template: resolvedTpl,
     };
     this.notebook.pages.push(newPage);
     this.currentPageIndex = this.notebook.pages.length - 1;
     this.renderer.setPageConfig(resolvedSize, resolvedTpl);
-    this.renderer.importPageData([]);
+    this.renderer.importPageData([], [], []);
     this._notify();
   }
 
@@ -83,7 +85,7 @@ class NotebookManager {
       page.pageSize || DEFAULT_PAGE_SIZE,
       page.template || DEFAULT_TEMPLATE,
     );
-    this.renderer.importPageData(page.strokes || []);
+    this.renderer.importPageData(page.strokes || [], page.texts || [], page.images || []);
     this._notify();
   }
 
@@ -97,6 +99,8 @@ class NotebookManager {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
       index: insertAt,
       strokes: JSON.parse(JSON.stringify(pageData.strokes || [])),
+      texts:   JSON.parse(JSON.stringify(pageData.texts   || [])),
+      images:  JSON.parse(JSON.stringify(pageData.images  || [])),
       pageSize: pageData.pageSize || DEFAULT_PAGE_SIZE,
       template: pageData.template || DEFAULT_TEMPLATE,
     };
@@ -116,7 +120,11 @@ class NotebookManager {
 
   _saveCurrentPage() {
     const page = this.getCurrentPage();
-    if (page) page.strokes = this.renderer.exportPageData();
+    if (page) {
+      page.strokes = this.renderer.exportPageData();
+      page.texts   = this.renderer.exportTextData();
+      page.images  = this.renderer.exportImageData();
+    }
   }
 
   _notify() {

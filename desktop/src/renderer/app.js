@@ -177,11 +177,38 @@ function updateHistoryButtons() {
   undoBtn.disabled = !renderer.canUndo();
   redoBtn.disabled = !renderer.canRedo();
   markDirty();
+  scheduleBroadcast(); // sync canvas state to iPad after every stroke/undo/erase
 }
 
 renderer.onHistoryChange = updateHistoryButtons;
 undoBtn.addEventListener('click', () => renderer.undo());
 redoBtn.addEventListener('click', () => renderer.redo());
+
+// --- iPad full-page broadcast ---
+// Sends current page strokes + config to all connected iPads.
+// Called immediately for intentional actions (connect, page switch) and
+// debounced for high-frequency events (stroke complete, undo, erase).
+function broadcastPageState() {
+  if (!window.electronAPI || !notebookManager.notebook) return;
+  notebookManager._saveCurrentPage();
+  const page = notebookManager.getCurrentPage();
+  window.electronAPI.sendToiPad({
+    type:        'page_state',
+    currentPage: notebookManager.currentPageIndex,
+    pageCount:   notebookManager.pageCount,
+    pageSize:    page ? (page.pageSize || DEFAULT_PAGE_SIZE) : DEFAULT_PAGE_SIZE,
+    template:    page ? (page.template || DEFAULT_TEMPLATE)  : DEFAULT_TEMPLATE,
+    strokes:     page ? (page.strokes  || [])                : [],
+    texts:       page ? (page.texts    || [])                : [],
+    images:      page ? (page.images   || [])                : [],
+  });
+}
+
+let _broadcastTimer = null;
+function scheduleBroadcast() {
+  if (_broadcastTimer) clearTimeout(_broadcastTimer);
+  _broadcastTimer = setTimeout(() => broadcastPageState(), 150);
+}
 
 // --- Page navigation ---
 const pageIndicator = document.getElementById('page-indicator');
@@ -195,9 +222,7 @@ function updatePageUI(currentIndex, pageCount) {
   prevPageBtn.disabled = currentIndex === 0;
   nextPageBtn.disabled = currentIndex === pageCount - 1;
   pagesOverviewUI.refresh();
-  if (window.electronAPI) {
-    window.electronAPI.sendToiPad({ type: 'page_state', currentPage: currentIndex, pageCount });
-  }
+  broadcastPageState(); // send full page state (strokes + config) on every page change
 }
 
 notebookManager.onPageChange = updatePageUI;
@@ -273,11 +298,25 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault(); renderer.redo();
   } else if (e.ctrlKey && e.key === 's') {
     e.preventDefault(); autoSave();
+  } else if (e.ctrlKey && e.key === '0') {
+    e.preventDefault(); renderer.resetZoom();
   } else if (e.key === 'p' || e.key === 'P') {
     toolState.setTool('pen');
   } else if (e.key === 'e' || e.key === 'E') {
     toolState.setTool('eraser');
+  } else if (e.key === 't' || e.key === 'T') {
+    toolState.setTool('text');
   }
+});
+
+// --- Insert Image ---
+document.getElementById('insert-image-btn').addEventListener('click', async () => {
+  if (!notebookManager.notebook || !window.electronAPI) return;
+  const result = await window.electronAPI.insertImage();
+  if (!result) return;
+  renderer.addImage(result.src, result.width, result.height);
+  markDirty();
+  scheduleBroadcast();
 });
 
 // --- Clear current page ---
@@ -331,11 +370,7 @@ if (window.electronAPI) {
     if (status.connected) {
       el.textContent = `iPad Connected (${status.deviceName || 'unknown'})`;
       el.className = 'status-connected';
-      window.electronAPI.sendToiPad({
-        type: 'page_state',
-        currentPage: notebookManager.currentPageIndex,
-        pageCount:   notebookManager.pageCount,
-      });
+      broadcastPageState(); // send full page on connect so iPad is immediately in sync
     } else {
       el.textContent = 'No iPad Connected';
       el.className = 'status-disconnected';
@@ -346,5 +381,6 @@ if (window.electronAPI) {
     notebookManager.loadNotebook(notebook);
     clearDirty();
     updateNotebookTitle(notebook.name);
+    broadcastPageState();
   });
 }

@@ -722,3 +722,21 @@ body {
   background: #7a1e1e;
   color: #ffcdd2;
 }
+
+/* --- Text tool input overlay --- */
+
+#text-tool-input {
+  position: absolute;
+  display: none;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px dashed rgba(90, 125, 232, 0.8);
+  color: inherit; /* color set dynamically by canvas.js */
+  outline: none;
+  padding: 0 2px;
+  min-width: 80px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.2;
+  caret-color: #5a7de8;
+  z-index: 10;
+}
