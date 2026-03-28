@@ -3,6 +3,7 @@ import SwiftUI
 struct DeviceListView: View {
     @ObservedObject var discovery: DiscoveryService
     let onConnect: (Device) -> Void
+    let onOffline: () -> Void
 
     var body: some View {
         VStack(spacing: 24) {
@@ -10,14 +11,17 @@ struct DeviceListView: View {
 
             Image(systemName: "dot.radiowaves.left.and.right")
                 .font(.system(size: 60))
-                .foregroundColor(.gray)
+                .foregroundColor(.accentColor)
 
-            Text("Searching for Desktop...")
-                .font(.title2)
+            Text("NoteBridge")
+                .font(.largeTitle.bold())
+
+            Text("Searching for desktop…")
+                .font(.subheadline)
                 .foregroundColor(.secondary)
 
             if discovery.devices.isEmpty {
-                Text("Make sure the Windows desktop app is running\non the same WiFi network.")
+                Text("Make sure the desktop app is running\non the same WiFi network.")
                     .font(.callout)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -34,6 +38,7 @@ struct DeviceListView: View {
                                 Spacer()
                                 Image(systemName: "arrow.right.circle.fill")
                                     .font(.title3)
+                                    .foregroundColor(.accentColor)
                             }
                             .padding()
                             .background(Color(.systemGray6))
@@ -46,6 +51,14 @@ struct DeviceListView: View {
             }
 
             Spacer()
+
+            // Offline mode — use app as a standalone note-taker
+            Button(action: onOffline) {
+                Label("Use Offline", systemImage: "pencil.and.outline")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.bottom, 32)
         }
     }
 }

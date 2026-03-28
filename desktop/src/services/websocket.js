@@ -6,14 +6,22 @@ class CanvasServer {
   constructor() {
     this.wss = null;
     this.clients = new Set();
-    this.onStrokeUpdate = null;    // callback: (strokeData) => void
-    this.onStrokeComplete = null;  // callback: (strokeId) => void
-    this.onUndo = null;            // callback: () => void
-    this.onRedo = null;            // callback: () => void
-    this.onEraseAt = null;         // callback: (x, y) => void
-    this.onPageSwitch = null;      // callback: (index) => void
-    this.onPageAdd = null;         // callback: () => void
-    this.onClientChange = null;    // callback: (count, deviceName) => void
+
+    // ── Phase 0 callbacks (legacy stroke protocol) ──────────────
+    this.onStrokeUpdate = null;    // (strokeData) => void
+    this.onStrokeComplete = null;  // (strokeId) => void
+    this.onUndo = null;            // () => void
+    this.onRedo = null;            // () => void
+    this.onEraseAt = null;         // (x, y) => void
+    this.onPageSwitch = null;      // (index) => void
+    this.onPageAdd = null;         // () => void
+    this.onClientChange = null;    // (count, deviceName) => void
+
+    // ── Phase 1 callbacks (second-screen protocol) ───────────────
+    // iPad sends pointer/touch input: { action, x, y, pressure, tool }
+    this.onTouchEvent = null;      // (event) => void
+    // iPad sends toolbar/page actions: { action, ...payload }
+    this.onAction = null;          // (action, payload) => void
   }
 
   start(port = config.WEBSOCKET_PORT) {
@@ -111,12 +119,38 @@ class CanvasServer {
           if (this.onPageAdd) this.onPageAdd();
           break;
 
+        // ── Phase 1: second-screen input ──────────────────────────
+        // touch_event: pointer/touch/pencil input from the iPad screen
+        // { type, action: 'down'|'move'|'up', x, y, pressure, tool }
+        case 'touch_event':
+          if (this.onTouchEvent) {
+            this.onTouchEvent(message);
+          }
+          break;
+
+        // action: toolbar and page commands sent from the iPad app UI
+        // { type, action: 'undo'|'redo'|'page_switch'|'page_add', ...payload }
+        case 'action':
+          if (this.onAction) {
+            this.onAction(message.action, message);
+          }
+          // Also map to legacy callbacks for backward compatibility
+          if (message.action === 'undo' && this.onUndo) this.onUndo();
+          if (message.action === 'redo' && this.onRedo) this.onRedo();
+          if (message.action === 'page_switch' && this.onPageSwitch) this.onPageSwitch(message.page);
+          if (message.action === 'page_add' && this.onPageAdd) this.onPageAdd();
+          break;
+
         default:
           logger.debug('Unknown message type:', message.type);
       }
     } catch (error) {
       logger.error('Message parse error:', error.message);
     }
+  }
+
+  clientCount() {
+    return this.clients.size;
   }
 
   broadcast(data) {

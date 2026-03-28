@@ -29,6 +29,11 @@
 			path = NoteBridge;
 			sourceTree = "<group>";
 		};
+		E332B19C2F68FBC4007E48FE /* shared 2 */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "shared 2";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,6 +50,7 @@
 		E32030992F3A909A00813ACB = {
 			isa = PBXGroup;
 			children = (
+				E332B19C2F68FBC4007E48FE /* shared 2 */,
 				E32030A42F3A909A00813ACB /* NoteBridge */,
 				E32030A32F3A909A00813ACB /* Products */,
 			);
@@ -75,6 +81,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				E32030A42F3A909A00813ACB /* NoteBridge */,
+				E332B19C2F68FBC4007E48FE /* shared 2 */,
 			);
 			name = NoteBridge;
 			packageProductDependencies = (

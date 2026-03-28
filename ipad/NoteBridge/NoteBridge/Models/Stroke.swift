@@ -71,3 +71,37 @@ struct ActionMessage: Codable {
     var x: Double?      // erase_at normalized x
     var y: Double?      // erase_at normalized y
 }
+
+// ── Phase 1: second-screen protocol ─────────────────────────────────────────
+
+// Outgoing from iPad — pointer/pencil input forwarded to hidden Electron window
+struct TouchEventMessage: Codable {
+    let type: String        // always "touch_event"
+    let action: String      // "down" | "move" | "up"
+    let x: Double           // normalized 0–1
+    let y: Double           // normalized 0–1
+    let pressure: Double    // 0–1 (Apple Pencil force; 0.5 for finger touch)
+}
+
+// Outgoing from iPad — toolbar/page commands
+struct AppActionMessage: Codable {
+    let type: String        // always "action"
+    let action: String      // "undo" | "redo" | "page_add" | "page_switch"
+    var page: Int?          // for page_switch
+}
+
+// Incoming from Windows — one MJPEG frame
+struct ScreenFrameMessage: Codable {
+    let type: String        // "screen_frame"
+    let data: String        // base64-encoded JPEG
+    let width: Int
+    let height: Int
+}
+
+// Incoming from Windows — Windows cursor position on the iPad screen
+// x == -1 means cursor has left the iPad (hide cursor)
+struct CursorPosMessage: Codable {
+    let type: String        // "cursor_pos"
+    let x: Double           // normalized 0–1 (or -1 to hide)
+    let y: Double           // normalized 0–1
+}
