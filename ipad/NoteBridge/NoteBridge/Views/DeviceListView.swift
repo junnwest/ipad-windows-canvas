@@ -4,6 +4,10 @@ struct DeviceListView: View {
     @ObservedObject var discovery: DiscoveryService
     let onConnect: (Device) -> Void
     let onOffline: () -> Void
+    let onDevServer: (String) -> Void
+
+    @State private var showingDevServerInput = false
+    @State private var devServerInput = UserDefaults.standard.string(forKey: "devServerURL") ?? "http://192.168.1.x:3000"
 
     var body: some View {
         VStack(spacing: 24) {
@@ -52,13 +56,34 @@ struct DeviceListView: View {
 
             Spacer()
 
-            // Offline mode — use app as a standalone note-taker
-            Button(action: onOffline) {
-                Label("Use Offline", systemImage: "pencil.and.outline")
-                    .font(.callout)
-                    .foregroundColor(.secondary)
+            VStack(spacing: 16) {
+                Button(action: onOffline) {
+                    Label("Use Offline", systemImage: "pencil.and.outline")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                }
+
+                Button(action: { showingDevServerInput = true }) {
+                    Label("Dev Server", systemImage: "hammer")
+                        .font(.callout)
+                        .foregroundColor(.secondary.opacity(0.6))
+                }
             }
             .padding(.bottom, 32)
+        }
+        .alert("Dev Server URL", isPresented: $showingDevServerInput) {
+            TextField("http://192.168.1.x:3000", text: $devServerInput)
+                .keyboardType(.URL)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            Button("Connect") {
+                let url = devServerInput.trimmingCharacters(in: .whitespaces)
+                UserDefaults.standard.set(url, forKey: "devServerURL")
+                onDevServer(url)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Run  npm run serve-shared  in desktop/ on Windows, then enter your Windows IP.")
         }
     }
 }

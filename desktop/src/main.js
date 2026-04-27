@@ -266,9 +266,118 @@ ipcMain.handle('get-app-info', () => {
   };
 });
 
-// Renderer can send messages to iPad via this channel
+// ── iPad view bridge: forward drawings to the desktop renderer ───────────────
+//
+// The hidden window (shared web app) fires ipad-view:stroke_* IPC events as
+// the iPad draws via injected mouse events.  We normalize the field names
+// (shared canvas uses p/size/t; desktop renderer uses pressure/width/timestamp)
+// and forward them through the existing stroke-update / stroke-complete channels
+// so iPad drawings are live-previewed on Windows and saved with the notebook.
+//
+// NOTE (Phase 1): the hidden window is 1366 × 1024 (un-padded), while the
+// desktop canvas enforces the page aspect ratio with padding.  Normalized
+// coordinates therefore differ slightly; a coordinate-space correction will be
+// added in Phase 2.
+
+const _pendingIPadStrokes = new Map(); // id → normalized stroke object
+
+function _normPt(pt) {
+  return {
+    x:         pt.x,
+    y:         pt.y,
+    pressure:  pt.p   ?? pt.pressure  ?? 0.5,
+    timestamp: pt.t   ?? pt.timestamp ?? Date.now(),
+  };
+}
+
+// Hidden window signals it's ready — tell the renderer to re-broadcast the
+// current page state so the window doesn't start empty (startup race fix).
+ipcMain.on('ipad-view:ready', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('ipad-view-ready');
+  }
+});
+ipcMain.on('ipad-view:request_state', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('ipad-view-ready');
+  }
+});
+
+ipcMain.on('ipad-view:stroke_begin', (_event, data) => {
+  if (!data?.stroke) return;
+  const s = data.stroke;
+
+  if (s.tool === 'eraser') {
+    // Eraser: map each point to an erase_at event on the desktop renderer
+    // (stroke-based erase), then track the id so stroke_points can continue.
+    _pendingIPadStrokes.set(s.id, { id: s.id, isEraser: true });
+    for (const pt of (s.points || [])) {
+      const np = _normPt(pt);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('ipad-erase-at', { x: np.x, y: np.y });
+      }
+    }
+    return;
+  }
+
+  const stroke = {
+    id:     s.id,
+    color:  s.color || '#000000',
+    width:  s.size  ?? s.width ?? 2,
+    tool:   'pen',
+    points: (s.points || []).map(_normPt),
+  };
+  _pendingIPadStrokes.set(s.id, stroke);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('stroke-update', stroke);
+  }
+});
+
+ipcMain.on('ipad-view:stroke_points', (_event, data) => {
+  if (!data) return;
+  const pending = _pendingIPadStrokes.get(data.id);
+  if (!pending) return;
+
+  if (pending.isEraser) {
+    for (const pt of (data.points || [])) {
+      const np = _normPt(pt);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('ipad-erase-at', { x: np.x, y: np.y });
+      }
+    }
+    return;
+  }
+
+  const newPts = (data.points || []).map(_normPt);
+  pending.points.push(...newPts);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('stroke-update', {
+      id: pending.id, color: pending.color, width: pending.width, tool: pending.tool,
+      points: newPts,
+    });
+  }
+});
+
+ipcMain.on('ipad-view:stroke_end', (_event, data) => {
+  if (!data?.id) return;
+  const pending = _pendingIPadStrokes.get(data.id);
+  _pendingIPadStrokes.delete(data.id);
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (pending?.isEraser) return; // erase_at events already sent; nothing to commit
+  // Commit pen stroke — renderer has all points from stroke_begin + stroke_points
+  mainWindow.webContents.send('stroke-complete', data.id);
+});
+
+// Renderer can send messages to iPad via this channel.
+// page_state is also mirrored into the hidden iPad view window so it stays in
+// sync when the desktop user switches pages, undoes, or redoes.
 ipcMain.on('send-to-ipad', (_event, data) => {
   server.broadcast(data);
+  if (data.type === 'page_state' && ipadWindow && !ipadWindow.isDestroyed()) {
+    ipadWindow.webContents.executeJavaScript(
+      `window.bridgeReceive && window.bridgeReceive('page_state', ${JSON.stringify(data)})`
+    ).catch(() => {});
+  }
 });
 
 // Storage IPC handlers

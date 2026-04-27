@@ -5,8 +5,8 @@ class PagesOverviewUI {
     this.notebookManager = notebookManager;
     this._copiedPage = null;
 
-    this.onAddPage       = null; // () => void  — called after modal closes
-    this.onStructureChange = null; // () => void — called after insert/delete
+    this.onAddPage       = null;
+    this.onStructureChange = null;
 
     this.overlay = document.getElementById('pages-overview-overlay');
     this.gridEl  = document.getElementById('pages-grid');
@@ -26,14 +26,13 @@ class PagesOverviewUI {
   }
 
   open() {
-    this.notebookManager._saveCurrentPage(); // flush current strokes so thumbnail is accurate
+    this.notebookManager._saveCurrentPage();
     this._render();
     this.overlay.classList.remove('hidden');
   }
 
   close() { this.overlay.classList.add('hidden'); }
 
-  // Called by app.js via onPageChange so the grid stays up to date while open
   refresh() {
     if (!this.overlay.classList.contains('hidden')) this._render();
   }
@@ -51,15 +50,40 @@ class PagesOverviewUI {
     const card = document.createElement('div');
     card.className = 'page-card' + (isCurrent ? ' current' : '');
 
+    // ── Preview area ──
+    const preview = document.createElement('div');
+    preview.className = 'page-preview';
+
+    // Dotted grid overlay
+    const dots = document.createElement('div');
+    dots.className = 'page-dots-overlay';
+    preview.appendChild(dots);
+
     // Thumbnail canvas
     const thumb = this._renderThumbnail(page);
+    thumb.style.position = 'absolute';
+    thumb.style.inset = '0';
+    thumb.style.width = '100%';
+    thumb.style.height = '100%';
+    thumb.style.objectFit = 'contain';
+    preview.appendChild(thumb);
 
-    // Page number label
+    // Selected badge
+    if (isCurrent) {
+      const badge = document.createElement('div');
+      badge.className = 'page-current-badge';
+      badge.textContent = '✓';
+      preview.appendChild(badge);
+    }
+
+    // ── Actions area ──
+    const actionsArea = document.createElement('div');
+    actionsArea.className = 'page-actions-area';
+
     const label = document.createElement('div');
     label.className = 'page-card-label';
-    label.textContent = `Page ${index + 1}`;
+    label.textContent = `Pg ${index + 1}`;
 
-    // Action row
     const actions = document.createElement('div');
     actions.className = 'page-card-actions';
 
@@ -69,16 +93,18 @@ class PagesOverviewUI {
 
     const pasteBtn  = document.createElement('button');
     pasteBtn.className = 'page-card-btn';
-    pasteBtn.textContent = 'Paste after';
+    pasteBtn.textContent = 'Paste ↓';
     pasteBtn.disabled = !this._copiedPage;
 
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'page-card-btn page-card-delete-btn';
-    deleteBtn.textContent = 'Delete';
+    deleteBtn.textContent = '✕';
     deleteBtn.disabled = this.notebookManager.pageCount <= 1;
 
     actions.append(copyBtn, pasteBtn, deleteBtn);
-    card.append(thumb, label, actions);
+    actionsArea.append(label, actions);
+
+    card.append(preview, actionsArea);
 
     // Switch to page on card click
     card.addEventListener('click', (e) => {
@@ -94,7 +120,7 @@ class PagesOverviewUI {
         pageSize: page.pageSize || DEFAULT_PAGE_SIZE,
         template: page.template || DEFAULT_TEMPLATE,
       };
-      this._render(); // refresh to enable all paste buttons
+      this._render();
     });
 
     pasteBtn.addEventListener('click', (e) => {
@@ -102,14 +128,12 @@ class PagesOverviewUI {
       if (!this._copiedPage) return;
       this.notebookManager.insertPage(index, this._copiedPage);
       if (this.onStructureChange) this.onStructureChange();
-      // _render() will be triggered via onPageChange → refresh()
     });
 
     deleteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.notebookManager.deletePage(index);
       if (this.onStructureChange) this.onStructureChange();
-      // _render() will be triggered via onPageChange → refresh()
     });
 
     return card;
@@ -120,7 +144,7 @@ class PagesOverviewUI {
   _renderThumbnail(page) {
     const ps = PAGE_SIZES[page.pageSize || DEFAULT_PAGE_SIZE] || PAGE_SIZES[DEFAULT_PAGE_SIZE];
     const ratio = ps.widthMm / ps.heightMm;
-    const THUMB_H = 130;
+    const THUMB_H = 88;
     const THUMB_W = Math.round(THUMB_H * ratio);
     const DPR = 2;
 

@@ -18,6 +18,18 @@ class StreamService: ObservableObject {
     // Latest decoded frame from the Windows stream
     @Published var currentFrame: UIImage? = nil
 
+    // Tool state — mirrored into the hidden Electron window via action messages
+    @Published var currentTool:  String = "pen"
+    @Published var currentColor: String = "#1a1a1a"
+    @Published var currentSize:  Double = 2.0
+
+    // Page state — updated from page_state messages sent by the desktop
+    @Published var currentPage: Int = 0
+    @Published var pageCount:   Int = 1
+
+    let colors: [String] = ["#1a1a1a", "#e53935", "#1e88e5", "#43a047", "#fb8c00"]
+    let sizes:  [Double] = [2, 5, 10]
+
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private var webSocketTask: URLSessionWebSocketTask?
@@ -96,6 +108,15 @@ class StreamService: ObservableObject {
                 self.isConnecting = false
             }
 
+        case "page_state":
+            if let pg  = json["currentPage"] as? Int,
+               let cnt = json["pageCount"]   as? Int {
+                DispatchQueue.main.async {
+                    self.currentPage = pg
+                    self.pageCount   = cnt
+                }
+            }
+
         case "pong":
             let now = Date().timeIntervalSince1970 * 1000
             DispatchQueue.main.async {
@@ -122,6 +143,30 @@ class StreamService: ObservableObject {
     }
 
     // ── Outgoing messages ─────────────────────────────────────────────────────
+
+    func sendUndo()    { sendAction("undo") }
+    func sendRedo()    { sendAction("redo") }
+    func sendPageAdd() { sendAction("page_add") }
+
+    func sendPageSwitch(to index: Int) {
+        sendAction("page_switch", payload: ["page": index])
+    }
+
+    func sendToolChange(_ tool: String) {
+        currentTool = tool
+        sendAction("tool_change", payload: ["tool": tool])
+    }
+
+    func sendColorChange(_ color: String) {
+        currentColor = color
+        currentTool  = "pen"
+        sendAction("color_change", payload: ["color": color])
+    }
+
+    func sendSizeChange(_ size: Double) {
+        currentSize = size
+        sendAction("size_change", payload: ["size": size])
+    }
 
     // Send touch or Apple Pencil input
     // action: "down" | "move" | "up"

@@ -29,8 +29,16 @@ class ExportService {
 
       this._renderTemplate(doc, page.template || 'blank', w, h);
 
+      for (const img of (page.images || [])) {
+        this._renderImage(doc, img, w, h);
+      }
+
       for (const stroke of (page.strokes || [])) {
         this._renderStroke(doc, stroke, w, h);
+      }
+
+      for (const text of (page.texts || [])) {
+        this._renderText(doc, text, w, h);
       }
     }
 
@@ -94,6 +102,31 @@ class ExportService {
     doc.strokeColor('#ffaaaa').lineWidth(0.5);
     doc.moveTo(col1, 0).lineTo(col1, h).stroke();
     doc.moveTo(col2, 0).lineTo(col2, h).stroke();
+  }
+
+  _renderText(doc, text, w, h) {
+    if (!text.content || !text.content.trim()) return;
+    const fontSize = (text.fontSize || 0.04) * h;
+    doc.font('Helvetica')
+       .fontSize(fontSize)
+       .fillColor(text.color || '#000000')
+       .text(text.content, text.x * w, text.y * h, { lineBreak: false });
+  }
+
+  _renderImage(doc, img, w, h) {
+    if (!img.src) return;
+    try {
+      // src is a data URL: "data:image/jpeg;base64,<data>"
+      const commaIdx = img.src.indexOf(',');
+      if (commaIdx < 0) return;
+      const buf = Buffer.from(img.src.slice(commaIdx + 1), 'base64');
+      doc.image(buf, img.x * w, img.y * h, {
+        width:  img.width  * w,
+        height: img.height * h,
+      });
+    } catch (err) {
+      logger.error('PDF image render failed:', err.message);
+    }
   }
 
   _renderStroke(doc, stroke, w, h) {

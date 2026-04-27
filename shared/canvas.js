@@ -267,13 +267,47 @@ class CanvasEngine {
   // ── External state load (from host) ─────────────────
 
   loadPageState(state) {
-    // state: { currentPage, pageCount, pages: [[strokes], ...] }
     if (state.pages) {
-      this.pages = state.pages.map(p => p || []);
+      // Full pages array format (iPad offline WKWebView)
+      this.pages     = state.pages.map(p => p || []);
       this.redoStacks = this.pages.map(() => []);
-    }
-    if (typeof state.currentPage === 'number') {
-      this.currentPage = state.currentPage;
+      if (typeof state.currentPage === 'number') {
+        this.currentPage = state.currentPage;
+      }
+    } else if (state.strokes !== undefined) {
+      // Desktop single-page format sent by broadcastPageState():
+      // { currentPage, pageCount, strokes, texts, images, pageSize, template }
+      // Desktop strokes use { pressure, timestamp, width } — normalize to { p, t, size }.
+      const idx       = typeof state.currentPage === 'number' ? state.currentPage : this.currentPage;
+      const pageCount = typeof state.pageCount   === 'number' ? state.pageCount   : idx + 1;
+
+      while (this.pages.length < pageCount) {
+        this.pages.push([]);
+        this.redoStacks.push([]);
+      }
+
+      const incomingIds = (state.strokes || []).map(s => s.id).join('\0');
+      const existingIds = (this.pages[idx] || []).map(s => s.id).join('\0');
+      const pageChanged = idx !== this.currentPage;
+
+      if (!pageChanged && incomingIds === existingIds) {
+        // Nothing new — skip the clear+redraw to avoid MJPEG flicker when the
+        // desktop echoes back strokes the hidden window already drew.
+        return;
+      }
+
+      this.pages[idx] = (state.strokes || []).map(s => ({
+        ...s,
+        size:   s.size  ?? s.width ?? 2,
+        points: (s.points || []).map(pt => ({
+          x: pt.x,
+          y: pt.y,
+          p: pt.p ?? pt.pressure ?? 0.5,
+          t: pt.t ?? pt.timestamp ?? 0,
+        })),
+      }));
+      this.redoStacks[idx] = [];
+      this.currentPage = idx;
     }
     this.redraw();
   }

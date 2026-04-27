@@ -56,4 +56,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // PDF export
   exportPDF: (notebookData) => ipcRenderer.invoke('export-pdf', notebookData),
+
+  // Hidden window ready — request a page state broadcast so it starts with content
+  onIPadViewReady: (callback) => {
+    ipcRenderer.on('ipad-view-ready', () => callback());
+  },
 });

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NoteBridge — Hi-Fi Mockups</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #e8e4de; overflow: hidden; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="hi_primitives.jsx"></script>
+<script type="text/babel" src="hi_ipad.jsx"></script>
+<script type="text/babel" src="hi_windows.jsx"></script>
+
+<script type="text/babel">
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#c07850",
+  "accentName": "Warm Terracotta",
+  "railSide": "left"
+}/*EDITMODE-END*/;
+
+const ACCENT_OPTIONS = [
+  { name:'Warm Terracotta', color:'#c07850' },
+  { name:'Muted Blue',      color:'#5b8dc9' },
+  { name:'Dusty Teal',      color:'#3d9e8c' },
+  { name:'Slate',           color:'#6878a0' },
+];
+
+function App() {
+  const [tw, setTw]         = React.useState(TWEAK_DEFAULTS);
+  const [panelOpen, setPanel] = React.useState(false);
+
+  React.useEffect(() => {
+    const h = e => {
+      if (e.data?.type === '__activate_edit_mode')   setPanel(true);
+      if (e.data?.type === '__deactivate_edit_mode') setPanel(false);
+    };
+    window.addEventListener('message', h);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', h);
+  }, []);
+
+  function update(patch) {
+    setTw(p => ({ ...p, ...patch }));
+    window.parent.postMessage({ type:'__edit_mode_set_keys', edits:patch }, '*');
+  }
+
+  const p = { accentColor: tw.accentColor };
+
+  return (
+    <>
+      <DesignCanvas title="NoteBridge — Hi-Fi Mockups">
+
+        {/* ══════════════════════════════════════════
+            SURFACE 1 · Shared Web App (iPad Canvas)
+        ══════════════════════════════════════════ */}
+        <DCSection id="s1" title="Surface 1 · Shared Canvas — iPad view">
+
+          <DCArtboard id="a1" label="Canvas · Disconnected" width={1024} height={768}>
+            <IPadHiCanvas {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="a2" label="Canvas · Connected  (only change: status pill)" width={1024} height={768}>
+            <IPadHiConnectedCanvas {...p}/>
+          </DCArtboard>
+
+        </DCSection>
+
+        {/* ══════════════════════════════════════════
+            SURFACE 2 · iPad Native App
+        ══════════════════════════════════════════ */}
+        <DCSection id="s2" title="Surface 2 · iPad Native App">
+
+          <DCArtboard id="b1" label="Home · Notebook Browser" width={768} height={1024}>
+            <IPadHiHome {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="b2" label="Home · Connect to Windows sheet" width={768} height={1024}>
+            <IPadHiConnectSheet {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="b3" label="Canvas · Page Manager sheet" width={768} height={1024}>
+            <IPadHiPageManager {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="b4" label="Canvas · Notebook Setup sheet" width={768} height={1024}>
+            <IPadHiNotebookSetup {...p}/>
+          </DCArtboard>
+
+        </DCSection>
+
+        {/* ══════════════════════════════════════════
+            SURFACE 3 · Windows Desktop App
+        ══════════════════════════════════════════ */}
+        <DCSection id="s3" title="Surface 3 · Windows Desktop App">
+
+          <DCArtboard id="c1" label="Windows · Canvas (Ribbon-Lite, connected)" width={1200} height={750}>
+            <WinHiCanvas {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="c2" label="Windows · Home / Notebook Browser" width={1200} height={750}>
+            <WinHiHome {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="c3" label="Windows · Page Manager modal" width={1200} height={750}>
+            <WinHiPageManager {...p}/>
+          </DCArtboard>
+
+        </DCSection>
+
+      </DesignCanvas>
+
+      {/* ── Tweak Panel ────────────────────────────── */}
+      {panelOpen && (
+        <div style={{
+          position:'fixed', bottom:20, right:20, zIndex:9999,
+          background:'rgba(252,250,248,0.96)',
+          backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
+          border:'1px solid rgba(0,0,0,0.12)',
+          borderRadius:14, padding:'16px 18px', width:248,
+          boxShadow:'0 8px 36px rgba(0,0,0,0.16)',
+          fontFamily:"-apple-system,'SF Pro Display',sans-serif",
+        }}>
+          <div style={{ fontSize:15, fontWeight:700, color:'#1a1a1a', marginBottom:14,
+            letterSpacing:'-0.2px' }}>Tweaks</div>
+
+          {/* Accent color */}
+          <div style={{ fontSize:12, fontWeight:600, color:'rgba(60,60,67,0.6)',
+            textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
+            Accent Color
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:5, marginBottom:16 }}>
+            {ACCENT_OPTIONS.map(opt => (
+              <div key={opt.name} onClick={() => update({ accentColor:opt.color, accentName:opt.name })}
+                style={{
+                  display:'flex', alignItems:'center', gap:10, padding:'7px 10px',
+                  borderRadius:9, cursor:'pointer',
+                  background: tw.accentName===opt.name ? `${opt.color}12` : '#fff',
+                  border: tw.accentName===opt.name
+                    ? `1.5px solid ${opt.color}`
+                    : '1px solid rgba(60,60,67,0.14)',
+                }}>
+                <div style={{ width:22, height:22, borderRadius:'50%', background:opt.color, flexShrink:0 }}/>
+                <span style={{ fontSize:14, color:'#1a1a1a',
+                  fontWeight: tw.accentName===opt.name ? 600 : 400 }}>
+                  {opt.name}
+                </span>
+                {tw.accentName===opt.name && (
+                  <span style={{ marginLeft:'auto', color:opt.color, fontSize:13 }}>✓</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Rail side */}
+          <div style={{ fontSize:12, fontWeight:600, color:'rgba(60,60,67,0.6)',
+            textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
+            Tool Rail Side
+          </div>
+          <div style={{ display:'flex', borderRadius:9, border:'1px solid rgba(60,60,67,0.14)',
+            overflow:'hidden', background:'#fff' }}>
+            {['left','right'].map(side => (
+              <div key={side} onClick={() => update({ railSide:side })}
+                style={{
+                  flex:1, textAlign:'center', padding:'7px 0',
+                  background: tw.railSide===side ? `${tw.accentColor}14` : 'transparent',
+                  color: tw.railSide===side ? tw.accentColor : 'rgba(60,60,67,0.6)',
+                  fontWeight: tw.railSide===side ? 600 : 400,
+                  fontSize:14, cursor:'pointer',
+                  borderRight: side==='left' ? '1px solid rgba(60,60,67,0.10)' : 'none',
+                }}>
+                {side.charAt(0).toUpperCase() + side.slice(1)}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop:12, fontSize:11, color:'rgba(60,60,67,0.4)', textAlign:'center' }}>
+            Changes apply live across all screens
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -12,7 +12,21 @@ let isDirty  = false;
 let saveTimer = null;
 const saveStatusEl = document.getElementById('save-status');
 
-function setSaveStatus(text) { saveStatusEl.textContent = text; }
+function setSaveStatus(text) {
+  saveStatusEl.textContent = text;
+  const pageBarSave = document.getElementById('page-bar-save');
+  if (pageBarSave) {
+    if (text === 'Saved') {
+      const now = new Date();
+      const mon = now.toLocaleString('default', { month: 'short' });
+      pageBarSave.textContent = `Saved · ${mon} ${now.getDate()}`;
+    } else if (text) {
+      pageBarSave.textContent = text;
+    } else {
+      // keep last "Saved · date" if set
+    }
+  }
+}
 
 function markDirty() {
   if (!isDirty) { isDirty = true; setSaveStatus('Unsaved changes'); }
@@ -44,6 +58,12 @@ async function autoSave() {
 // --- Notebook title in toolbar ---
 function updateNotebookTitle(name) {
   document.getElementById('notebook-name').textContent = name ? '\u2014 ' + name : '';
+}
+
+// --- Save status shown in page bar (right side) ---
+function setPageBarSave(text) {
+  const el = document.getElementById('page-bar-save');
+  if (el) el.textContent = text;
 }
 
 // --- Notebooks button → list modal ---
@@ -121,8 +141,8 @@ notebookListUI.onDelete = async (id) => {
   }
 };
 
-// --- Tool bar: pen/eraser toggle ---
-const toolBtns = document.querySelectorAll('#tool-selector .tool-btn');
+// --- Tool bar: pen/eraser/text (ribbon tools are divs with data-tool) ---
+const toolBtns = document.querySelectorAll('#tool-selector [data-tool]');
 toolBtns.forEach((btn) => {
   btn.addEventListener('click', () => toolState.setTool(btn.dataset.tool));
 });
@@ -155,7 +175,8 @@ toolState.sizes.forEach((size) => {
 });
 
 function updateToolUI() {
-  toolBtns.forEach((btn) => {
+  // ribbon-tool divs use data-tool (not .tool-btn class)
+  document.querySelectorAll('#tool-selector [data-tool]').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.tool === toolState.currentTool);
   });
   document.querySelectorAll('.color-swatch').forEach((swatch) => {
@@ -174,10 +195,11 @@ const undoBtn = document.getElementById('undo-btn');
 const redoBtn = document.getElementById('redo-btn');
 
 function updateHistoryButtons() {
-  undoBtn.disabled = !renderer.canUndo();
-  redoBtn.disabled = !renderer.canRedo();
+  // ribbon-tool divs: toggle dim class instead of disabled attr
+  undoBtn.classList.toggle('ribbon-tool-dim', !renderer.canUndo());
+  redoBtn.classList.toggle('ribbon-tool-dim', !renderer.canRedo());
   markDirty();
-  scheduleBroadcast(); // sync canvas state to iPad after every stroke/undo/erase
+  scheduleBroadcast();
 }
 
 renderer.onHistoryChange = updateHistoryButtons;
@@ -367,13 +389,21 @@ if (window.electronAPI) {
 
   window.electronAPI.onConnectionStatus((status) => {
     const el = document.getElementById('connection-status');
+    const statusDot = document.querySelector('.status-dot');
+    const statusLabel = document.getElementById('status-conn-label');
     if (status.connected) {
-      el.textContent = `iPad Connected (${status.deviceName || 'unknown'})`;
-      el.className = 'status-connected';
-      broadcastPageState(); // send full page on connect so iPad is immediately in sync
+      const name = status.deviceName || 'iPad';
+      const latency = status.latency ? ` · ${status.latency} ms` : '';
+      el.className = 'conn-connected';
+      el.innerHTML = `<div class="conn-dot"></div><div class="conn-text"><div class="conn-name">${name}</div><div class="conn-hint">${latency || 'Connected · Click to disconnect'}</div></div>`;
+      if (statusDot) statusDot.classList.add('connected');
+      if (statusLabel) statusLabel.textContent = `Connected to ${name}`;
+      broadcastPageState();
     } else {
-      el.textContent = 'No iPad Connected';
-      el.className = 'status-disconnected';
+      el.className = 'conn-disconnected';
+      el.innerHTML = `<div class="conn-dot"></div><div class="conn-text"><div class="conn-name">Not Connected</div><div class="conn-hint">No iPad connected</div></div>`;
+      if (statusDot) statusDot.classList.remove('connected');
+      if (statusLabel) statusLabel.textContent = 'Not connected to iPad';
     }
   });
 
@@ -382,5 +412,13 @@ if (window.electronAPI) {
     clearDirty();
     updateNotebookTitle(notebook.name);
     broadcastPageState();
+    // update status bar
+    window.electronAPI.listNotebooks().then(nbs => {
+      const el = document.getElementById('status-notebooks');
+      if (el) el.textContent = `${nbs.length} notebook${nbs.length !== 1 ? 's' : ''}`;
+    }).catch(() => {});
   });
+
+  // Hidden window finished loading after startup — send current page state
+  window.electronAPI.onIPadViewReady(() => broadcastPageState());
 }

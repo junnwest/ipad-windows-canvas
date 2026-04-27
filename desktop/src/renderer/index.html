@@ -8,62 +8,179 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+  <!-- Title bar (32px, Electron drag region) -->
   <div id="toolbar">
     <span id="app-title">NoteBridge</span>
     <span id="notebook-name"></span>
+    <div style="flex:1; -webkit-app-region:no-drag"></div>
     <span id="save-status"></span>
     <div id="toolbar-right">
-      <button id="notebooks-btn" class="toolbar-btn" title="Manage Notebooks">Notebooks</button>
-      <span class="toolbar-separator"></span>
-      <button id="undo-btn" class="toolbar-btn" title="Undo (Ctrl+Z)" disabled>Undo</button>
-      <button id="redo-btn" class="toolbar-btn" title="Redo (Ctrl+Shift+Z)" disabled>Redo</button>
-      <span class="toolbar-separator"></span>
-      <span id="connection-status" class="status-disconnected">No iPad Connected</span>
-      <button id="clear-btn" class="toolbar-btn" title="Clear Canvas">Clear</button>
-      <span class="toolbar-separator"></span>
-      <button id="insert-image-btn" class="toolbar-btn" title="Insert Image (from file)">Insert Image</button>
-      <button id="export-pdf-btn" class="toolbar-btn" title="Export to PDF">Export PDF</button>
+      <!-- clear-btn kept for app.js compatibility -->
+      <button id="clear-btn" class="hidden-btn" title="Clear Canvas">Clear</button>
     </div>
   </div>
 
-  <div id="tool-bar">
-    <div id="tool-selector">
-      <button class="tool-btn active" data-tool="pen" title="Pen (P)">Pen</button>
-      <button class="tool-btn" data-tool="eraser" title="Eraser (E)">Eraser</button>
-      <button class="tool-btn" data-tool="text" title="Text (T)">Text</button>
+  <!-- Ribbon (66px) -->
+  <div id="ribbon">
+
+    <!-- File group -->
+    <div class="ribbon-group" data-label="File">
+      <div class="ribbon-group-body">
+        <button id="notebooks-btn" class="win-btn" title="Manage Notebooks">Notebooks</button>
+      </div>
     </div>
-    <span class="toolbar-separator"></span>
-    <div id="color-palette"></div>
-    <span class="toolbar-separator"></span>
-    <div id="size-selector"></div>
+
+    <!-- Tools group -->
+    <div class="ribbon-group" data-label="Tools">
+      <div class="ribbon-group-body" id="tool-selector">
+        <div class="ribbon-tool active" data-tool="pen" role="button" tabindex="0" title="Pen (P)">
+          <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+            <path d="M15.5 3.5 18.5 6.5 8 17l-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M13 6l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <span>Pen</span>
+        </div>
+        <div class="ribbon-tool" data-tool="eraser" role="button" tabindex="0" title="Eraser (E)">
+          <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+            <path d="M4 18h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M14 4.5 18 8.5 10 16.5H6l-2-2 8-10z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Eraser</span>
+        </div>
+        <div class="ribbon-tool" data-tool="text" role="button" tabindex="0" title="Text (T)">
+          <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+            <path d="M5 6h12M11 6v11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M7.5 17h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span>Text</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Colors group -->
+    <div class="ribbon-group" data-label="Colors">
+      <div class="ribbon-group-body">
+        <div id="color-palette"></div>
+      </div>
+    </div>
+
+    <!-- Size group -->
+    <div class="ribbon-group" data-label="Size">
+      <div class="ribbon-group-body">
+        <div id="size-selector"></div>
+      </div>
+    </div>
+
+    <!-- Edit group -->
+    <div class="ribbon-group" data-label="Edit">
+      <div class="ribbon-group-body">
+        <div class="ribbon-tool" id="undo-btn" role="button" tabindex="0" title="Undo (Ctrl+Z)">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <path d="M3.5 8C5.5 5 9.5 3 13.5 5 17.5 7 18 12.5 15.5 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M3.5 4v4h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Undo</span>
+        </div>
+        <div class="ribbon-tool ribbon-tool-dim" id="redo-btn" role="button" tabindex="0" title="Redo (Ctrl+Y)">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <path d="M16.5 8C14.5 5 10.5 3 6.5 5 2.5 7 2 12.5 4.5 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M16.5 4v4h-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Redo</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Insert group -->
+    <div class="ribbon-group" data-label="Insert">
+      <div class="ribbon-group-body">
+        <div class="ribbon-stacked">
+          <button id="insert-image-btn" class="win-btn win-btn-sm" title="Insert Image (Ctrl+I)">🖼&thinsp; Image</button>
+          <button id="export-pdf-btn" class="win-btn win-btn-sm" title="Export PDF">⬇&thinsp; Export PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spacer -->
+    <div class="ribbon-spacer"></div>
+
+    <!-- Connection group -->
+    <div class="ribbon-group ribbon-group-right" data-label="Connection">
+      <div class="ribbon-group-body">
+        <div id="connection-status" class="conn-disconnected">
+          <div class="conn-dot"></div>
+          <div class="conn-text">
+            <div class="conn-name">Not Connected</div>
+            <div class="conn-hint">No iPad connected</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
+  <!-- Canvas container -->
   <div id="canvas-container">
     <canvas id="canvas"></canvas>
   </div>
 
+  <!-- Page bar (32px) -->
   <div id="page-bar">
-    <button id="prev-page-btn" class="page-btn" title="Previous Page">&#8249;</button>
+    <button id="prev-page-btn" class="page-btn" title="Previous Page (←)">← Prev</button>
     <span id="page-indicator">Page 1 / 1</span>
-    <button id="next-page-btn" class="page-btn" title="Next Page">&#8250;</button>
-    <span class="page-bar-sep"></span>
-    <button id="pages-btn" class="page-btn" title="View all pages">&#9633; Pages</button>
-    <div class="add-page-group">
-      <button id="add-page-btn" class="page-btn" title="Add page (same template as last page)">+ Add Page</button>
-      <button id="add-page-dropdown-btn" class="page-btn page-btn-caret" title="Add page with custom size &amp; template">&#9660;</button>
+    <button id="next-page-btn" class="page-btn" title="Next Page (→)">Next →</button>
+    <div class="page-bar-div"></div>
+    <button id="pages-btn" class="page-btn" title="View all pages">&#9633;&thinsp; Pages</button>
+    <div class="page-bar-thin-div"></div>
+    <button id="add-page-btn" class="page-btn page-btn-accent" title="Add page">+ Add Page</button>
+    <!-- dropdown btn kept for app.js compatibility -->
+    <button id="add-page-dropdown-btn" class="hidden-btn" title="Add page with custom template">▾</button>
+    <div class="page-bar-spacer"></div>
+    <span id="page-bar-save"></span>
+  </div>
+
+  <!-- Status bar (22px) -->
+  <div id="status-bar">
+    <span id="status-notebooks">—</span>
+    <div class="status-div"></div>
+    <span id="status-sync">All synced</span>
+    <div style="flex:1"></div>
+    <div id="status-connection">
+      <div class="status-dot"></div>
+      <span id="status-conn-label">Not connected to iPad</span>
     </div>
   </div>
 
   <!-- Notebook management modal -->
   <div id="notebook-modal-overlay" class="modal-overlay hidden">
-    <div class="modal">
-      <div class="modal-header">
+    <div class="modal notebook-modal">
+      <div class="modal-titlebar">
         <span class="modal-title">Notebooks</span>
-        <button id="notebook-modal-close" class="modal-close-btn">&times;</button>
+        <div style="flex:1"></div>
+        <button id="notebook-new-btn" class="win-btn win-btn-accent">+ New Notebook</button>
+        <div class="modal-title-div"></div>
+        <button id="notebook-modal-close" class="win-btn win-btn-sm">✕</button>
+      </div>
+      <div class="modal-toolbar">
+        <div id="nb-view-toggle" class="view-toggle">
+          <button class="view-toggle-btn active" data-view="grid">⊞ Grid</button>
+          <button class="view-toggle-btn" data-view="list">≡ List</button>
+        </div>
+        <div class="modal-div"></div>
+        <div class="nb-search">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="5" cy="5" r="3.5" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M8 8l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <span>Search notebooks…</span>
+        </div>
       </div>
       <div class="modal-body">
-        <button id="notebook-new-btn" class="notebook-new-btn">+ New Notebook</button>
         <div id="notebook-list-grid" class="notebook-grid"></div>
+      </div>
+      <div id="nb-status-bar" class="nb-status-bar">
+        <span id="nb-count">—</span>
       </div>
     </div>
   </div>
@@ -71,12 +188,14 @@
   <!-- Pages overview modal -->
   <div id="pages-overview-overlay" class="modal-overlay hidden">
     <div class="modal pages-overview-modal">
-      <div class="modal-header">
+      <div class="modal-titlebar">
         <span class="modal-title">Pages</span>
-        <button id="pages-overview-close" class="modal-close-btn">&times;</button>
+        <div style="flex:1"></div>
+        <button id="pages-add-btn" class="win-btn win-btn-accent">+ Add Page</button>
+        <div class="modal-title-div"></div>
+        <button id="pages-overview-close" class="win-btn win-btn-sm">✕</button>
       </div>
       <div class="modal-body pages-overview-body">
-        <button id="pages-add-btn" class="notebook-new-btn">+ Add Page</button>
         <div id="pages-grid" class="pages-grid"></div>
       </div>
     </div>
@@ -85,9 +204,10 @@
   <!-- Page setup modal (size + template) -->
   <div id="page-setup-overlay" class="modal-overlay hidden">
     <div class="modal page-setup-modal">
-      <div class="modal-header">
+      <div class="modal-titlebar">
         <span id="page-setup-title" class="modal-title">New Notebook</span>
-        <button id="page-setup-close-btn" class="modal-close-btn">&times;</button>
+        <div style="flex:1"></div>
+        <button id="page-setup-close-btn" class="win-btn win-btn-sm">✕</button>
       </div>
       <div class="modal-body">
         <div id="page-setup-name-row" class="ps-field-row">
@@ -126,8 +246,8 @@
           </div>
         </div>
         <div class="ps-actions">
-          <button id="page-setup-cancel" class="notebook-form-btn cancel">Cancel</button>
-          <button id="page-setup-confirm" class="notebook-form-btn">Create</button>
+          <button id="page-setup-cancel" class="win-btn">Cancel</button>
+          <button id="page-setup-confirm" class="win-btn win-btn-accent">Create</button>
         </div>
       </div>
     </div>

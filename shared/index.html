@@ -11,71 +11,144 @@
 <body>
   <div id="app">
 
-    <div id="canvas-area">
-      <canvas id="drawing-canvas"></canvas>
-      <canvas id="cursor-canvas"></canvas>
+    <!-- Nav bar: 52px, frosted glass -->
+    <div id="nav-bar">
+      <div id="nav-left">
+        <button class="nav-btn" id="btn-notebooks" aria-label="Back to Notebooks">
+          <svg width="10" height="16" viewBox="0 0 10 16" fill="none">
+            <path d="M8 2L2 8l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Notebooks
+        </button>
+      </div>
+      <div id="nav-title">NoteBridge</div>
+      <div id="nav-right">
+        <button class="nav-btn" id="btn-pages-nav" aria-label="Pages">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <rect x="4" y="3" width="10" height="13" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="6" y="5" width="10" height="13" rx="2" stroke="currentColor" stroke-width="1.5" fill="white"/>
+            <path d="M9 9h4M9 12h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Pages
+        </button>
+        <button class="nav-icon-btn" id="btn-more" aria-label="More">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="5" cy="10" r="1.5" fill="currentColor"/>
+            <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
+            <circle cx="15" cy="10" r="1.5" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
-    <div id="toolbar">
+    <!-- Body: tool rail + canvas -->
+    <div id="body">
 
-      <div class="tool-group">
-        <button class="tool-btn active" id="tool-pen" data-tool="pen" aria-label="Pen">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 20h9"/>
-            <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      <!-- Tool rail: 60px, vertical -->
+      <div id="tool-rail">
+
+        <!-- Tool buttons: pen / eraser / text -->
+        <button class="tool-btn active" data-tool="pen" aria-label="Pen">
+          <svg width="21" height="21" viewBox="0 0 22 22" fill="none">
+            <path d="M15.5 3.5 18.5 6.5 8 17l-3.5.5.5-3.5z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M13 6l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
           </svg>
         </button>
-        <button class="tool-btn" id="tool-eraser" data-tool="eraser" aria-label="Eraser">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 20H7L3 16l11.5-11.5a2 2 0 012.83 0l3.17 3.17a2 2 0 010 2.83L8 20"/>
-            <path d="M6 17l3-3"/>
+        <button class="tool-btn" data-tool="eraser" aria-label="Eraser">
+          <svg width="21" height="21" viewBox="0 0 22 22" fill="none">
+            <path d="M4 18h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M14 4.5 18 8.5 10 16.5H6l-2-2 8-10z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
-      </div>
-
-      <div class="tool-group colors">
-        <button class="color-btn active" data-color="#1a1a1a" style="--color:#1a1a1a" aria-label="Black"></button>
-        <button class="color-btn" data-color="#e53935" style="--color:#e53935" aria-label="Red"></button>
-        <button class="color-btn" data-color="#1e88e5" style="--color:#1e88e5" aria-label="Blue"></button>
-        <button class="color-btn" data-color="#43a047" style="--color:#43a047" aria-label="Green"></button>
-        <button class="color-btn" data-color="#fb8c00" style="--color:#fb8c00" aria-label="Orange"></button>
-      </div>
-
-      <div class="tool-group sizes">
-        <button class="size-btn active" data-size="2" aria-label="Thin"><span class="size-dot" style="width:4px;height:4px"></span></button>
-        <button class="size-btn" data-size="5" aria-label="Medium"><span class="size-dot" style="width:9px;height:9px"></span></button>
-        <button class="size-btn" data-size="10" aria-label="Thick"><span class="size-dot" style="width:16px;height:16px"></span></button>
-      </div>
-
-      <div class="tool-group actions">
-        <button class="action-btn" id="btn-undo" aria-label="Undo">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 14 4 9 9 4"/>
-            <path d="M20 20v-7a4 4 0 00-4-4H4"/>
+        <button class="tool-btn" data-tool="text" aria-label="Text">
+          <svg width="21" height="21" viewBox="0 0 22 22" fill="none">
+            <path d="M5 6h12M11 6v11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M7.5 17h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
-        <button class="action-btn" id="btn-redo" aria-label="Redo">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 14 20 9 15 4"/>
-            <path d="M4 20v-7a4 4 0 014-4h12"/>
+
+        <div class="rail-divider"></div>
+
+        <!-- Color swatches -->
+        <div id="color-swatches">
+          <button class="color-btn active" data-color="#1a1a1a" style="--c:#1a1a1a" aria-label="Black"></button>
+          <button class="color-btn" data-color="#d63030" style="--c:#d63030" aria-label="Red"></button>
+          <button class="color-btn" data-color="#2860d0" style="--c:#2860d0" aria-label="Blue"></button>
+          <button class="color-btn" data-color="#28a050" style="--c:#28a050" aria-label="Green"></button>
+          <button class="color-btn" data-color="#df7020" style="--c:#df7020" aria-label="Orange"></button>
+          <button class="color-btn" data-color="#7838c0" style="--c:#7838c0" aria-label="Purple"></button>
+          <button class="color-btn" data-color="#707070" style="--c:#707070" aria-label="Gray"></button>
+        </div>
+
+        <div class="rail-divider"></div>
+
+        <!-- Size dots -->
+        <div id="size-dots">
+          <button class="size-btn" data-size="2" aria-label="Thin"><span class="size-dot" style="width:3px;height:3px"></span></button>
+          <button class="size-btn active" data-size="5" aria-label="Medium"><span class="size-dot" style="width:5px;height:5px"></span></button>
+          <button class="size-btn" data-size="8" aria-label="Thick"><span class="size-dot" style="width:8px;height:8px"></span></button>
+          <button class="size-btn" data-size="13" aria-label="Extra Thick"><span class="size-dot" style="width:13px;height:13px"></span></button>
+        </div>
+
+        <div class="rail-spacer"></div>
+
+        <!-- Undo / Redo -->
+        <button class="action-btn undo-redo-btn" id="btn-undo" aria-label="Undo">
+          <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
+            <path d="M3.5 8C5.5 5 9.5 3 13.5 5 17.5 7 18 12.5 15.5 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M3.5 4v4h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
+        <button class="action-btn undo-redo-btn" id="btn-redo" aria-label="Redo" style="opacity:0.30">
+          <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
+            <path d="M16.5 8C14.5 5 10.5 3 6.5 5 2.5 7 2 12.5 4.5 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M16.5 4v4h-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+
       </div>
 
-      <div class="tool-group pages">
-        <button class="action-btn" id="btn-prev" aria-label="Previous page">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <span id="page-indicator">1 / 1</span>
-        <button class="action-btn" id="btn-next" aria-label="Next page">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
-        <button class="action-btn" id="btn-add-page" aria-label="Add page">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
+      <!-- Canvas area -->
+      <div id="canvas-area">
+        <canvas id="drawing-canvas"></canvas>
+        <canvas id="cursor-canvas"></canvas>
+        <div id="canvas-dots"></div>
+
+        <!-- Connection status pill (shown when connected) -->
+        <div id="connection-pill" class="hidden">
+          <div class="pill-dot"></div>
+          <span id="pill-device">DESKTOP-PC7K</span>
+          <span id="pill-latency"></span>
+          <button id="pill-dismiss" aria-label="Disconnect">×</button>
+        </div>
       </div>
 
     </div>
+
+    <!-- Page bar: 46px, frosted glass -->
+    <div id="page-bar">
+      <div id="page-nav-group">
+        <button class="page-nav-btn" id="btn-prev" disabled aria-label="Previous page">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M11 5L7 9l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <span id="page-indicator">1 of 1</span>
+        <button class="page-nav-btn" id="btn-next" aria-label="Next page">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M7 5l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="page-bar-spacer"></div>
+      <button id="btn-add-page" class="add-page-btn" aria-label="Add page">
+        <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+          <path d="M9 4v10M4 9h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Page
+      </button>
+    </div>
+
   </div>
 
   <script src="canvas.js"></script>

@@ -8,6 +8,8 @@ import WebKit
 
 struct WebAppView: UIViewRepresentable {
 
+    var devServerURL: String? = nil
+
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -41,17 +43,19 @@ struct WebAppView: UIViewRepresentable {
     // ── Load ──────────────────────────────────────────────────────────────────
 
     private func loadSharedApp(in webView: WKWebView) {
-        // The "shared" folder must be added to the Xcode project as a
-        // folder reference. Bundle.main.url finds it by subdirectory.
+        // Dev mode: load from a local server running on the Windows machine.
+        // Start the server with: npm run serve-shared (from desktop/)
+        if let urlString = devServerURL, let url = URL(string: urlString) {
+            webView.load(URLRequest(url: url))
+            return
+        }
+
         if let indexURL = Bundle.main.url(forResource: "index",
                                           withExtension: "html",
                                           subdirectory: "shared") {
-            // Allow access to the whole shared/ directory so CSS and JS load
             let sharedDir = indexURL.deletingLastPathComponent()
             webView.loadFileURL(indexURL, allowingReadAccessTo: sharedDir)
         } else {
-            // Fallback: load a minimal inline page so the app doesn't crash
-            // if the shared folder hasn't been added to Xcode yet.
             webView.loadHTMLString(
                 """
                 <html><body style="display:flex;align-items:center;justify-content:center;

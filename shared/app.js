@@ -59,7 +59,6 @@ window.bridgeReceive = (type, data) => Bridge.receive(type, data);
       document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       engine.color = btn.dataset.color;
-      // Switch to pen tool when color is selected
       selectTool('pen');
     });
   });
@@ -94,7 +93,7 @@ window.bridgeReceive = (type, data) => Bridge.receive(type, data);
 
   function updatePageUI() {
     document.getElementById('page-indicator').textContent =
-      `${engine.currentPage + 1} / ${engine.pageCount}`;
+      `${engine.currentPage + 1} of ${engine.pageCount}`;
     document.getElementById('btn-prev').disabled = engine.currentPage === 0;
     document.getElementById('btn-next').disabled = engine.currentPage === engine.pageCount - 1;
   }
@@ -147,6 +146,60 @@ window.bridgeReceive = (type, data) => Bridge.receive(type, data);
       engine.redraw();
     }
     updatePageUI();
+  });
+
+  // Tool / color / size changes sent from the iPad toolbar in connected mode
+  Bridge.on('tool_change', data => {
+    if (!data.tool) return;
+    engine.tool = data.tool;
+    document.querySelectorAll('.tool-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.tool === data.tool));
+  });
+
+  Bridge.on('color_change', data => {
+    if (!data.color) return;
+    engine.color = data.color;
+    engine.tool  = 'pen';
+    document.querySelectorAll('.color-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.color === data.color));
+    document.querySelectorAll('.tool-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.tool === 'pen'));
+  });
+
+  Bridge.on('size_change', data => {
+    if (data.size == null) return;
+    engine.size = Number(data.size);
+    document.querySelectorAll('.size-btn').forEach(b =>
+      b.classList.toggle('active', Number(b.dataset.size) === engine.size));
+  });
+
+  // ── Connection status pill ─────────────────────────
+
+  const pill = document.getElementById('connection-pill');
+  const pillDevice = document.getElementById('pill-device');
+  const pillLatency = document.getElementById('pill-latency');
+
+  Bridge.on('connection_status', data => {
+    if (data && data.connected) {
+      pillDevice.textContent = data.deviceName || 'Windows PC';
+      pillLatency.textContent = data.latency ? ` ${data.latency}` : '';
+      pill.classList.remove('hidden');
+    } else {
+      pill.classList.add('hidden');
+    }
+  });
+
+  document.getElementById('pill-dismiss').addEventListener('click', () => {
+    pill.classList.add('hidden');
+    Bridge.send('disconnect', {});
+  });
+
+  // ── Notebook title ──────────────────────────────────
+
+  Bridge.on('set_title', data => {
+    if (data && data.title) {
+      document.getElementById('nav-title').textContent = data.title;
+    }
   });
 
   // ── Auto-save (offline / Electron mode) ───────────

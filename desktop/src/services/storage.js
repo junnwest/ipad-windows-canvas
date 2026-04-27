@@ -42,6 +42,13 @@ class StorageService {
 
       CREATE INDEX IF NOT EXISTS pages_by_notebook ON pages(notebook_id, idx);
     `);
+
+    // Add images column if it doesn't exist yet (migration for existing databases)
+    try {
+      this._db.exec("ALTER TABLE pages ADD COLUMN images TEXT NOT NULL DEFAULT '[]'");
+    } catch (_) {
+      // Column already exists — nothing to do
+    }
   }
 
   // ---- One-time JSON → SQLite migration -------------------------------------
@@ -77,8 +84,8 @@ class StorageService {
     `);
     const deletePgs  = this._db.prepare('DELETE FROM pages WHERE notebook_id = ?');
     const insertPage = this._db.prepare(`
-      INSERT INTO pages (id, notebook_id, idx, page_size, template, strokes, texts)
-      VALUES (@id, @notebookId, @idx, @pageSize, @template, @strokes, @texts)
+      INSERT INTO pages (id, notebook_id, idx, page_size, template, strokes, texts, images)
+      VALUES (@id, @notebookId, @idx, @pageSize, @template, @strokes, @texts, @images)
     `);
 
     this._db.transaction(() => {
@@ -100,6 +107,7 @@ class StorageService {
           template:   page.template || 'blank',
           strokes:    JSON.stringify(page.strokes || []),
           texts:      JSON.stringify(page.texts   || []),
+          images:     JSON.stringify(page.images  || []),
         });
       }
     })();
@@ -115,6 +123,7 @@ class StorageService {
       template: row.template,
       strokes:  JSON.parse(row.strokes),
       texts:    JSON.parse(row.texts),
+      images:   JSON.parse(row.images || '[]'),
     };
   }
 

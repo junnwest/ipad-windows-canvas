@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoteBridge — Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Caveat', cursive; background: #f0ede8; overflow: hidden; }
+</style>
+</head>
+<body>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="wf_primitives.jsx"></script>
+<script type="text/babel" src="wf_ipad.jsx"></script>
+<script type="text/babel" src="wf_windows.jsx"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#c07850",
+  "accentName": "Warm Terracotta"
+}/*EDITMODE-END*/;
+
+const ACCENT_OPTIONS = [
+  { name: 'Muted Blue',    color: '#5b8dc9' },
+  { name: 'Dusty Teal',    color: '#3d9e8c' },
+  { name: 'Slate',         color: '#6878a0' },
+  { name: 'Warm Terracotta', color: '#c07850' },
+];
+
+function App() {
+  const [tweaks, setTweaks] = React.useState(TWEAK_DEFAULTS);
+  const [tweakOpen, setTweakOpen] = React.useState(false);
+  const accent = tweaks.accentColor;
+
+  // Tweak panel messaging
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === '__activate_edit_mode') setTweakOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweakOpen(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  function setAccent(opt) {
+    const next = { accentColor: opt.color, accentName: opt.name };
+    setTweaks(next);
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: next }, '*');
+  }
+
+  const p = { accentColor: accent };
+
+  return (
+    <>
+      <DesignCanvas title="NoteBridge — Wireframes">
+
+        {/* ══════════════════════════════════════════════
+            SURFACE 1 · iPad Canvas Toolbar
+        ══════════════════════════════════════════════ */}
+        <DCSection id="s1" title="Surface 1 · iPad Canvas — Toolbar Variations">
+
+          <DCArtboard id="a1" label="A · Centered Floating Pill" width={900} height={660}>
+            <IPadCanvas_CenteredPill {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="a2" label="B · Full-Width Frosted Bar" width={900} height={660}>
+            <IPadCanvas_FullWidthBar {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="a3" label="C · Left Side Rail" width={900} height={660}>
+            <IPadCanvas_SideRail {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="a4" label="D · Collapsible Dot → Tray" width={900} height={660}>
+            <IPadCanvas_ExpandingDot {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="a5" label="E · Thin Strip + Context Panel" width={900} height={660}>
+            <IPadCanvas_ContextPanel {...p}/>
+          </DCArtboard>
+
+        </DCSection>
+
+        {/* ══════════════════════════════════════════════
+            SURFACE 2a · iPad Home Screen
+        ══════════════════════════════════════════════ */}
+        <DCSection id="s2" title="Surface 2 · iPad Home — Notebook Browser">
+
+          <DCArtboard id="b1" label="A · 2-Col Cover Cards" width={680} height={920}>
+            <IPadHome_TwoCol {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="b2" label="B · 3-Col + Recents Section" width={680} height={920}>
+            <IPadHome_ThreeCol {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="b3" label="C · Hero Recent + 2-Col Grid" width={680} height={920}>
+            <IPadHome_HeroGrid {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="b4" label="D · List View (novel)" width={680} height={920}>
+            <IPadHome_List {...p}/>
+          </DCArtboard>
+
+        </DCSection>
+
+        {/* ══════════════════════════════════════════════
+            SURFACE 2b · iPad Connection + Sheets
+        ══════════════════════════════════════════════ */}
+        <DCSection id="s3" title="Surface 2 · iPad Connection Flow + Overlays">
+
+          <DCArtboard id="c1" label="A · Connect Sheet (AirDrop style)" width={680} height={920}>
+            <IPadConnect_Sheet {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="c2" label="B · Connected Canvas (status pill only)" width={680} height={920}>
+            <IPadConnected_Canvas {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="c3" label="C · Page Manager Sheet" width={680} height={920}>
+            <IPadPageManager {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="c4" label="D · Notebook Setup Sheet" width={680} height={920}>
+            <IPadNotebookSetup {...p}/>
+          </DCArtboard>
+
+        </DCSection>
+
+        {/* ══════════════════════════════════════════════
+            SURFACE 3 · Windows Canvas
+        ══════════════════════════════════════════════ */}
+        <DCSection id="s4" title="Surface 3 · Windows Canvas — Chrome Variations">
+
+          <DCArtboard id="d1" label="A · Classic Compact (2 toolbars)" width={960} height={620}>
+            <WinCanvas_Classic {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="d2" label="B · Ribbon-Lite (grouped, labelled)" width={960} height={620}>
+            <WinCanvas_Ribbon {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="d3" label="C · Side Panel + Minimal Top Bar" width={960} height={620}>
+            <WinCanvas_SidePanel {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="d4" label="D · Near-Frameless / Keyboard-First" width={960} height={620}>
+            <WinCanvas_Minimal {...p}/>
+          </DCArtboard>
+
+        </DCSection>
+
+        {/* ══════════════════════════════════════════════
+            SURFACE 3b · Windows Home + Modals
+        ══════════════════════════════════════════════ */}
+        <DCSection id="s5" title="Surface 3 · Windows Home + Modals">
+
+          <DCArtboard id="e1" label="A · Home — Grid View" width={960} height={620}>
+            <WinHome_Grid {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="e2" label="B · Home — List View" width={960} height={620}>
+            <WinHome_List {...p}/>
+          </DCArtboard>
+
+          <DCArtboard id="e3" label="C · Page Manager Modal" width={960} height={620}>
+            <WinPageManager {...p}/>
+          </DCArtboard>
+
+        </DCSection>
+
+      </DesignCanvas>
+
+      {/* ── Tweak Panel ── */}
+      {tweakOpen && (
+        <div style={{
+          position:'fixed', bottom:20, right:20, zIndex:9999,
+          background:'#fafaf8', border:'1.5px solid #1e1c1a',
+          borderRadius:12, padding:'16px 18px', width:240,
+          boxShadow:'0 8px 32px rgba(0,0,0,0.18)',
+          fontFamily:'Caveat'
+        }}>
+          <div style={{fontSize:17,fontWeight:700,marginBottom:12,color:'#1e1c1a'}}>Tweaks</div>
+          <div style={{fontSize:14,color:'#888',marginBottom:8}}>Accent Color</div>
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {ACCENT_OPTIONS.map(opt => (
+              <div key={opt.name}
+                onClick={() => setAccent(opt)}
+                style={{
+                  display:'flex', alignItems:'center', gap:10,
+                  padding:'7px 10px', borderRadius:8, cursor:'pointer',
+                  background: tweaks.accentName === opt.name ? `${opt.color}18` : '#fff',
+                  border: tweaks.accentName === opt.name ? `1.5px solid ${opt.color}` : '1.5px solid #e0dcd6',
+                }}>
+                <div style={{width:22,height:22,borderRadius:'50%',background:opt.color,flexShrink:0}}/>
+                <span style={{fontSize:15,color:'#1e1c1a',fontWeight: tweaks.accentName===opt.name?700:400}}>
+                  {opt.name}
+                </span>
+                {tweaks.accentName===opt.name && <span style={{marginLeft:'auto',color:opt.color}}>✓</span>}
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:12,fontSize:12,color:'#aaa',textAlign:'center'}}>
+            Changes apply live across all artboards
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+<div id="root"></div>
+</body>
+</html>
