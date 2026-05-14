@@ -1,4 +1,4 @@
-# iPad Windows Canvas
+# NoteBridge
 
 Turn your iPad into a seamless second screen for Windows. Draw with Apple Pencil, interact with your Windows workflow, and move your mouse between screens — all while the iPad app looks and feels like a native iOS app.
 
@@ -8,7 +8,7 @@ Turn your iPad into a seamless second screen for Windows. Draw with Apple Pencil
 
 The iPad acts as a second monitor for a Windows PC, but with a key distinction from a traditional second monitor:
 
-- The **Windows app** looks like a Windows app — native desktop UI, Windows conventions
+- The **Windows app** looks like a Windows app — native Ribbon-style desktop UI, Windows conventions
 - The **iPad app** looks like an iPad app — iOS aesthetics, touch-optimized, works standalone
 - When connected, the iPad app becomes a live projection of a Windows-rendered view that looks **identical** to the standalone iPad app
 - The Windows mouse cursor can move off the right edge of the screen and appear on the iPad, exactly like a dual-monitor setup — no driver required
@@ -22,21 +22,28 @@ The user should never feel a difference between the connected and disconnected i
 ### The Two Apps
 
 **Windows App (Electron)**
-- Main interface for the Windows user — Windows-native look and feel
-- Contains a hidden background window sized to iPad resolution that renders the iPad-facing web app
-- This hidden window is captured and streamed as MJPEG frames over WebSocket to the iPad
-- Receives touch and Apple Pencil events from the iPad, processes them, and the updated stream is what the iPad sees
-- A low-level mouse hook detects when the cursor reaches the right edge of the screen and transfers control to the iPad
+- Main interface for the Windows user — Windows-native Ribbon-style UI
+- Pen, eraser, and text tools; color palette; stroke size picker; undo/redo
+- Full notebook management: create, rename, delete; multiple page sizes (A4, Letter, Square) and templates (blank, dotted, squared, ruled, Cornell, 3-column)
+- Image insertion (JPEG/PNG, downscaled to 1200 px max); PDF export via PDFKit
+- SQLite persistence (`better-sqlite3`) with automatic one-time migration from the legacy JSON format
+- Contains a hidden background window sized to iPad resolution (1366×1024) that renders the shared web app
+- This hidden window is captured at 30 fps and broadcast as MJPEG frames over WebSocket to the iPad
+- Receives touch and Apple Pencil events from the iPad, injects them as synthetic mouse events into the hidden window, and the updated stream is what the iPad sees
+- Software edge detection polls the cursor position and activates iPad mode when the cursor reaches the right edge of the primary display
 
-**iPad App (Swift + WKWebView)**
+**iPad App (Swift + SwiftUI)**
 - **Offline mode:** loads the shared web app locally in `WKWebView` — fully functional standalone note app, no connection needed
-- **Connected mode:** drops `WKWebView`, displays the MJPEG stream from Windows full-screen
+- **Dev Server mode:** loads the shared web app from a URL entered by the user (for fast iteration during development)
+- **Connected mode:** drops `WKWebView`, displays the MJPEG stream from Windows full-screen with a native SwiftUI overlay toolbar
+- The connected toolbar mirrors tool, color, size, undo/redo, and page navigation state into the hidden Electron window via `action` messages
+- A status pill in the top-right shows the host name, live latency, and a disconnect button
 - Sends Apple Pencil and touch events to Windows, which renders the result and streams back
-- Displays a cursor overlay showing the Windows mouse position when it is on the iPad screen
+- mDNS discovery via `Network.framework` — finds Windows hosts automatically on the local network
 
 **Shared Web App (HTML/CSS/JS)**
 - The note-taking UI — canvas, toolbar, pages — built with iOS aesthetics (large touch targets, iOS-style typography)
-- Runs in `WKWebView` on iPad (offline) and in the hidden Electron window on Windows (connected)
+- Runs in `WKWebView` on iPad (offline/dev server) and in the hidden Electron window on Windows (connected)
 - Because it is the same code in both cases, the connected and disconnected views are visually identical
 
 ### System Diagram
@@ -47,17 +54,18 @@ The user should never feel a difference between the connected and disconnected i
 │                                 │        │                              │
 │  ┌──────────────────────────┐   │        │  ┌────────────────────────┐  │
 │  │   Windows App (Electron) │   │        │  │     iPad App (Swift)   │  │
-│  │   - Windows-native UI    │   │        │  │                        │  │
-│  │   - Note canvas          │   │        │  │  Offline: WKWebView    │  │
-│  └──────────────────────────┘   │        │  │  (shared web app)      │  │
-│                                 │        │  │                        │  │
-│  ┌──────────────────────────┐   │  MJPEG │  │  Connected: MJPEG      │  │
-│  │  Hidden iPad View Window │──────────────▶│  stream (full-screen)  │  │
+│  │   - Ribbon-style UI      │   │        │  │                        │  │
+│  │   - Notebook management  │   │        │  │  Offline: WKWebView    │  │
+│  │   - PDF export           │   │        │  │  (shared web app)      │  │
+│  └──────────────────────────┘   │        │  │                        │  │
+│                                 │        │  │  Connected: MJPEG      │  │
+│  ┌──────────────────────────┐   │  MJPEG │  │  stream + SwiftUI      │  │
+│  │  Hidden iPad View Window │──────────────▶│  toolbar overlay       │  │
 │  │  (shared web app,        │   │  stream│  │                        │  │
-│  │   iPad resolution)       │◀──────────────│  Touch / Pencil events │  │
+│  │   1366×1024)             │◀──────────────│  Touch / Pencil events │  │
 │  └──────────────────────────┘   │  events│  └────────────────────────┘  │
 │                                 │        │                              │
-│  Mouse edge detection:          │        │  Cursor overlay shown        │
+│  Cursor edge detection:         │        │  Cursor overlay shown        │
 │  cursor exits right edge ──────────────────▶ on iPad screen            │
 └─────────────────────────────────┘        └──────────────────────────────┘
 
@@ -77,7 +85,7 @@ The central challenge was making the connected and disconnected iPad views look 
 |---|---|---|
 | Platform | Windows first, macOS later | DXGI capture is GPU-level (~1ms), significantly faster than CoreGraphics. macOS expansion is clean — same Electron + WebSocket + iPad stack, just swap the platform-specific capture and input injection modules behind a common interface |
 | Screen streaming protocol | MJPEG over WebSocket | Sufficient for local WiFi (100–300 Mbps). Every frame is independent, simple to implement. WebRTC (with inter-frame compression) can be added later as an optimization without changing the transport layer |
-| Cursor entry to iPad | Software edge detection | A low-level Windows mouse hook detects when the cursor hits the right screen edge and transfers control to the iPad. Achieves the same UX as a virtual display driver with no driver installation required. A virtual display driver (e.g. `parsec-vdd`) can be added later to enable dragging arbitrary Windows apps to the iPad |
+| Cursor entry to iPad | Software edge detection | Polls `screen.getCursorScreenPoint()` at 60 Hz and activates iPad mode when the cursor hits the right screen edge. Achieves the same UX as a virtual display driver with no driver installation required. A virtual display driver (e.g. `parsec-vdd`) can be added later to enable dragging arbitrary Windows apps to the iPad |
 | iPad UI technology | Shared web app in WKWebView | Guarantees visual identity between connected and disconnected modes. iOS feel is achieved through CSS design (iOS-style typography, large touch targets), not native SwiftUI components |
 | Drawing latency (Phase 1) | Accept round-trip latency | iPad touch → Windows processes → streams back = ~10–20ms on local WiFi. Acceptable for Phase 1. Phase 2 will add client-side prediction (local preview stroke on iPad, replaced by authoritative stream frame) |
 
@@ -91,16 +99,27 @@ The central challenge was making the connected and disconnected iPad views look 
 |---|---|---|
 | `welcome` | `{ deviceName, version, timestamp }` | Sent on connection |
 | `pong` | `{ timestamp }` | Heartbeat response |
-| `screen_frame` | `{ data: base64-JPEG, width, height }` | MJPEG frame of iPad view |
+| `screen_frame` | `{ data: base64-JPEG, width, height }` | MJPEG frame of iPad view (30 fps, quality 65) |
 | `cursor_pos` | `{ x, y }` | Normalized (0–1) cursor position; x=-1 to hide |
+| `page_state` | `{ ... }` | Full page state broadcast (strokes, texts, images) when desktop switches pages or undoes |
 
 ### iPad → Desktop
 
 | Message | Payload | Description |
 |---|---|---|
-| `ping` | `{ timestamp }` | Heartbeat (every 5s) |
-| `touch_event` | `{ action, x, y, pressure }` | Touch or Apple Pencil input — `action`: `down`/`move`/`up`, coords normalized 0–1 |
-| `action` | `{ action, ...payload }` | Toolbar/page commands — `undo`, `redo`, `page_add`, `page_switch` |
+| `ping` | `{ timestamp }` | Heartbeat (every 5 s) |
+| `touch_event` | `{ action, x, y, pressure, tool }` | Touch or Apple Pencil input — `action`: `down`/`move`/`up`, coords normalized 0–1 |
+| `action` | `{ action, ...payload }` | Toolbar commands — `undo`, `redo`, `page_switch` (+ `page`), `page_add`, `tool_change` (+ `tool`), `color_change` (+ `color`), `size_change` (+ `size`) |
+
+#### Legacy Phase 0 messages (still active)
+
+| Message | Direction | Description |
+|---|---|---|
+| `stroke_update` | iPad→Desktop | Incremental stroke data during a draw gesture |
+| `stroke_complete` | iPad→Desktop | Stroke committed; persist to notebook |
+| `erase_at` | iPad→Desktop | Erase at normalized coordinate |
+| `page_switch` | iPad→Desktop | Switch to page index |
+| `page_add` | iPad→Desktop | Append a new page |
 
 > `clipboard` and `mouse_event` are planned for Phase 2.
 
@@ -109,16 +128,16 @@ The central challenge was making the connected and disconnected iPad views look 
 ## Build Phases
 
 ### Phase 0 — Proof of Concept (complete)
-iPad draws with Apple Pencil → strokes appear on desktop in real time over WebSocket. mDNS discovery, pressure sensitivity, SQLite storage, undo/redo, multi-page notebooks. Tested at 9–13ms latency over WiFi.
+iPad draws with Apple Pencil → strokes appear on desktop in real time over WebSocket. mDNS discovery, pressure sensitivity, SQLite storage, undo/redo, multi-page notebooks. Tested at 9–13 ms latency over WiFi.
 
 ### Phase 1 — Second Screen MVP (implemented, pending hardware test)
 - Shared web app (`shared/`) — iOS-optimized note canvas running in both WKWebView and Electron
-- Hidden Electron window (1366×1024) renders the shared web app and is captured at 30fps via `webContents.capturePage()`
-- Frames encoded as JPEG and broadcast over WebSocket as `screen_frame` messages
-- iPad connected mode: full-screen MJPEG stream display (`StreamView`)
+- Hidden Electron window (1366×1024) renders the shared web app and is captured at 30 fps via `webContents.capturePage()`
+- Frames encoded as JPEG (quality 65) and broadcast over WebSocket as `screen_frame` messages
+- iPad connected mode: full-screen MJPEG stream display (`StreamView`) with native SwiftUI toolbar overlay
 - iPad offline mode: shared web app loaded locally in `WKWebView` (`WebAppView`)
 - Touch and Apple Pencil events forwarded to hidden window via `webContents.sendInputEvent()`
-- Basic cursor edge detection via `screen.getCursorScreenPoint()` polling — cursor shown in stream
+- Cursor edge detection via `screen.getCursorScreenPoint()` polling at 60 Hz — cursor shown in stream
 - Phase 1 uses only cross-platform Electron APIs — **testable on macOS**, no Windows device required
 
 ### Phase 2 — Input Polish
@@ -140,28 +159,67 @@ iPad draws with Apple Pencil → strokes appear on desktop in real time over Web
 ## How to Run
 
 ### Prerequisites
-- Node.js (v18+) and Electron installed
+- Node.js (v18+) and npm
 - iPad with Xcode-deployed NoteBridge app
 - Both devices on the same WiFi network
 
-### Desktop app (macOS or Windows)
+### Desktop app
 
-```bash
+```powershell
 cd desktop
 npm install
-unset ELECTRON_RUN_AS_NODE && npx electron . --dev
+npm run dev
 ```
 
-> **VSCode terminal:** VSCode sets `ELECTRON_RUN_AS_NODE` which breaks Electron. Always `unset` it first.
+> **VSCode terminal:** VSCode sets `ELECTRON_RUN_AS_NODE` which breaks Electron. If `npm run dev` fails, launch from a standalone terminal instead of the VSCode integrated terminal.
 
-The Windows app window opens. A second hidden window (the iPad view) is created in the background and begins streaming to any connected iPad.
+The NoteBridge window opens. A second hidden window (the iPad view) is created in the background and begins streaming to any connected iPad.
 
 ### iPad app
 
 1. Open `ipad/NoteBridge/NoteBridge.xcodeproj` in Xcode
 2. Ensure the `shared/` folder was added as a **folder reference** (blue icon) — required for offline mode
 3. Select your iPad as the run target and press **Cmd+R**
-4. On the iPad: tap a discovered device to connect, or tap **Use Offline** for standalone mode
+4. On the iPad: tap a discovered device to connect, tap **Use Offline** for standalone mode, or tap **Dev Server** to load from a local dev server URL
+
+---
+
+## Development Workflow (no Mac required after initial deploy)
+
+Changes to `shared/` (canvas, UI, toolbar, styles) can be tested on the iPad instantly without rebuilding or touching Xcode.
+
+### One-time setup
+Deploy the iPad app from Xcode once (requires Mac). After that, the Mac is only needed when Swift files change.
+
+### Every dev session (Windows only)
+
+**1. Find your Windows IP**
+```powershell
+ipconfig
+# Look for IPv4 Address under your WiFi adapter, e.g. 192.168.1.42
+```
+
+**2. Start the dev server**
+```powershell
+cd desktop
+npm run serve-shared
+# Serves shared/ at http://192.168.1.42:3000
+```
+
+**3. Connect iPad**
+
+On the iPad: open NoteBridge → tap **Dev Server** → enter `http://192.168.1.42:3000` → Connect.
+
+The URL is saved — you only type it once per IP change.
+
+**4. Make changes**
+
+Edit any file in `shared/` on Windows. Refresh the iPad (pull down or navigate back and tap Dev Server again) to see changes immediately.
+
+### When you do need Xcode again
+Only when Swift files change (`ContentView.swift`, `StreamService.swift`, `DeviceListView.swift`, etc.):
+1. `git push` on Windows
+2. `git pull` on Mac → Cmd+R in Xcode to redeploy
 
 ---
 
@@ -174,17 +232,25 @@ ipad-windows-canvas/
 │   ├── test-client.js              # WebSocket test simulator
 │   └── src/
 │       ├── main.js                 # Electron main process
-│       ├── preload.js              # IPC bridge (context isolation)
-│       ├── renderer/               # Windows app UI (Windows-native look)
-│       │   ├── index.html
-│       │   ├── app.js
+│       ├── preload.js              # IPC bridge for main renderer window
+│       ├── preload-ipad.js         # IPC bridge for hidden iPad view window
+│       ├── renderer/               # Windows app UI (Ribbon-style)
+│       │   ├── index.html          # Ribbon toolbar, canvas, modals
+│       │   ├── app.js              # App bootstrap, IPC, connection status
 │       │   ├── canvas.js           # HTML5 canvas drawing engine
-│       │   └── styles.css
+│       │   ├── history.js          # Undo/redo history
+│       │   ├── tools.js            # Tool/color/size state
+│       │   ├── notebook.js         # Active notebook state + save/load
+│       │   ├── notebook-list.js    # Notebook management modal
+│       │   ├── page-setup.js       # New notebook / page size+template modal
+│       │   ├── pages-overview.js   # Pages grid overview modal
+│       │   └── styles.css          # Windows Ribbon-style CSS
 │       ├── services/
 │       │   ├── websocket.js        # WebSocket server (port 8080)
 │       │   ├── discovery.js        # mDNS broadcast (_ipadcanvas._tcp)
 │       │   ├── capture.js          # Hidden window capture + MJPEG streaming
-│       │   └── storage.js          # SQLite notebook persistence
+│       │   ├── storage.js          # SQLite notebook persistence (better-sqlite3)
+│       │   └── export.js           # PDF export (PDFKit)
 │       └── utils/
 │           ├── config.js
 │           └── logger.js
@@ -198,33 +264,42 @@ ipad-windows-canvas/
 └── ipad/                           # Swift iPad app
     └── NoteBridge/
         ├── NoteBridgeApp.swift
-        ├── ContentView.swift       # Switches between WKWebView and stream
+        ├── ContentView.swift       # Root coordinator; switches between discovery / offline / connected
         ├── Models/
+        │   ├── Device.swift        # mDNS device model
+        │   ├── Stroke.swift        # Stroke data model
+        │   └── ToolState.swift     # Tool/color/size state
         ├── Views/
-        │   ├── StreamView.swift    # MJPEG stream display (connected)
-        │   └── WebAppView.swift    # WKWebView wrapper (offline)
+        │   ├── DeviceListView.swift        # mDNS device list + offline/dev server entry
+        │   ├── StreamView.swift            # MJPEG stream display (connected)
+        │   ├── WebAppView.swift            # WKWebView wrapper (offline/dev server)
+        │   ├── DrawingCanvasView.swift     # PencilKit-based drawing (Phase 0 legacy)
+        │   ├── CanvasViewRepresentable.swift
+        │   ├── ToolbarView.swift           # Offline toolbar
+        │   └── ActivityView.swift
         └── Services/
             ├── ConnectionService.swift
-            ├── DiscoveryService.swift
-            └── StreamService.swift # MJPEG frame decoder
+            ├── DiscoveryService.swift      # mDNS browser (Network.framework)
+            └── StreamService.swift         # WebSocket client + MJPEG decoder + action senders
 ```
 
 ---
 
 ## Tech Stack
 
-- **Windows app:** Electron, HTML5 Canvas, WebSocket (`ws`), mDNS (`bonjour-service`), `webContents.capturePage()` for screen capture, `webContents.sendInputEvent()` for input injection
+- **Windows app:** Electron, HTML5 Canvas, WebSocket (`ws`), mDNS (`bonjour-service`), `webContents.capturePage()` for screen capture, `webContents.sendInputEvent()` for input injection, PDFKit for PDF export
 - **Shared web app:** HTML/CSS/JS, iOS-style design, runs in both WKWebView and Electron
 - **iPad app:** Swift, SwiftUI, `WKWebView`, `URLSessionWebSocketTask`, `Network.framework` (mDNS)
 - **Protocol:** JSON + MJPEG over WebSocket, mDNS for discovery
-- **Storage:** SQLite (`better-sqlite3`) on Windows
+- **Storage:** SQLite (`better-sqlite3`) on Windows; automatic one-time migration from legacy JSON format
 
 ---
 
 ## Environment Notes
 
-- Node.js via Homebrew: `/opt/homebrew/bin/node` (v25+)
-- Electron v40+
-- **VSCode terminal quirk:** VSCode sets `ELECTRON_RUN_AS_NODE` which breaks Electron. Always launch with: `unset ELECTRON_RUN_AS_NODE && npx electron . --dev`
+- Node.js v18+ required; Electron v40+
+- **VSCode terminal quirk:** VSCode sets `ELECTRON_RUN_AS_NODE` which breaks Electron. Use `npm run dev` from a standalone terminal if the integrated terminal fails.
 - WebSocket port: 8080
 - mDNS service type: `_ipadcanvas._tcp`
+- Hidden iPad view window: 1366×1024 (iPad Pro 12.9" landscape at logical 1×)
+- MJPEG capture: 30 fps, JPEG quality 65, self-throttling (skips frame if previous capture hasn't finished)
