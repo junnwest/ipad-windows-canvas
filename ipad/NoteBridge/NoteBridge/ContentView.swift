@@ -305,10 +305,10 @@ struct ContentView: View {
 
         // Extract host/port from NWEndpoint
         switch device.endpoint {
-        case .hostPort(let h, let p):
+        case .hostPort(host: let h, port: let p):
             host = "\(h)"
             port = Int(p.rawValue)
-        case .service(let name, _, let domain, _):
+        case .service(name: let name, type: _, domain: let domain, interface: _):
             // Fall back to .local hostname resolution
             let clean = name
                 .replacingOccurrences(of: "iPad-Canvas-", with: "")
