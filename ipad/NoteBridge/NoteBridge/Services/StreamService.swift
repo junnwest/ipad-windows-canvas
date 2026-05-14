@@ -107,6 +107,9 @@ class StreamService: ObservableObject {
                 self.isConnected  = true
                 self.isConnecting = false
             }
+            // Tell Windows the iPad's logical screen size so it can resize the
+            // hidden window to match exactly, fixing coordinate mapping.
+            sendDeviceInfo()
 
         case "page_state":
             if let pg  = json["currentPage"] as? Int,
@@ -189,6 +192,15 @@ class StreamService: ObservableObject {
         msg["type"]   = "action"
         msg["action"] = action
         send(msg)
+    }
+
+    private func sendDeviceInfo() {
+        let bounds = UIScreen.main.bounds
+        send([
+            "type":         "device_info",
+            "screenWidth":  Double(bounds.width),
+            "screenHeight": Double(bounds.height),
+        ])
     }
 
     private func sendPing() {

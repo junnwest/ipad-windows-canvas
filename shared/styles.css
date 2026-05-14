@@ -459,3 +459,15 @@ html, body {
 .add-page-btn:active {
   opacity: 0.85;
 }
+
+/* ── Electron hidden-window mode ─────────────────────── */
+/* When running as the hidden capture window, hide all UI chrome.
+   The canvas fills the full window; the iOS SwiftUI toolbar handles controls. */
+
+#app.electron-mode #nav-bar,
+#app.electron-mode #tool-rail,
+#app.electron-mode #page-bar,
+#app.electron-mode #canvas-dots { display: none; }
+
+#app.electron-mode #body    { width: 100%; }
+#app.electron-mode #canvas-area { width: 100%; }

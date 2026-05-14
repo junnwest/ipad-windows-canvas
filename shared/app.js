@@ -44,6 +44,21 @@ window.bridgeReceive = (type, data) => Bridge.receive(type, data);
 
   const engine = new CanvasEngine(drawingCanvas, cursorCanvas);
 
+  // When running inside the Electron hidden-window, hide all UI chrome so the
+  // canvas fills the full window (matching the iPad screen). The iOS SwiftUI
+  // toolbar overlay handles tool/color/undo/page controls in connected mode.
+  if (window.__electronIPCBridge) {
+    document.getElementById('app').classList.add('electron-mode');
+  }
+
+  // Direct input bridge for Electron: main.js calls this instead of
+  // sendInputEvent so we get pressure and correct normalized coordinates.
+  window.iPadPointerInput = (action, nx, ny, pressure) => {
+    if      (action === 'down') engine.inputDown(nx, ny, pressure);
+    else if (action === 'move') engine.inputMove(nx, ny, pressure);
+    else if (action === 'up')   engine.inputUp(nx, ny, pressure);
+  };
+
   // ── Tool selection ─────────────────────────────────
 
   document.querySelectorAll('.tool-btn').forEach(btn => {

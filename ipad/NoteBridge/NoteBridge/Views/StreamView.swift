@@ -15,7 +15,7 @@ struct StreamView: View {
             if let frame = stream.currentFrame {
                 Image(uiImage: frame)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .aspectRatio(contentMode: .fit)
                     .ignoresSafeArea()
             } else {
                 // Waiting for first frame

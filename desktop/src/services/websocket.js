@@ -22,6 +22,8 @@ class CanvasServer {
     this.onTouchEvent = null;      // (event) => void
     // iPad sends toolbar/page actions: { action, ...payload }
     this.onAction = null;          // (action, payload) => void
+    // iPad sends its screen dimensions once on connect
+    this.onDeviceInfo = null;      // ({ width, height }) => void
   }
 
   start(port = config.WEBSOCKET_PORT) {
@@ -125,6 +127,14 @@ class CanvasServer {
         case 'touch_event':
           if (this.onTouchEvent) {
             this.onTouchEvent(message);
+          }
+          break;
+
+        // device_info: iPad screen dimensions sent once on connect
+        // { type, screenWidth, screenHeight } — logical points (not physical pixels)
+        case 'device_info':
+          if (this.onDeviceInfo && message.screenWidth && message.screenHeight) {
+            this.onDeviceInfo({ width: message.screenWidth, height: message.screenHeight });
           }
           break;
 

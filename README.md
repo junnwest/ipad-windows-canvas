@@ -27,9 +27,10 @@ The user should never feel a difference between the connected and disconnected i
 - Full notebook management: create, rename, delete; multiple page sizes (A4, Letter, Square) and templates (blank, dotted, squared, ruled, Cornell, 3-column)
 - Image insertion (JPEG/PNG, downscaled to 1200 px max); PDF export via PDFKit
 - SQLite persistence (`better-sqlite3`) with automatic one-time migration from the legacy JSON format
-- Contains a hidden background window sized to iPad resolution (1366×1024) that renders the shared web app
+- Contains a hidden background window that renders the shared web app in **full-canvas electron-mode** (all shared-app UI chrome hidden — the iOS SwiftUI toolbar handles controls in connected mode)
+- The hidden window's dimensions are set dynamically when the iPad sends its screen size on connect, so the canvas maps 1-to-1 with the iPad screen
 - This hidden window is captured at 30 fps and broadcast as MJPEG frames over WebSocket to the iPad
-- Receives touch and Apple Pencil events from the iPad, injects them as synthetic mouse events into the hidden window, and the updated stream is what the iPad sees
+- Receives touch and Apple Pencil events from the iPad; injected via a direct JS bridge (`window.iPadPointerInput`) that preserves Apple Pencil pressure — bypasses `sendInputEvent` which is mouse-only
 - Software edge detection polls the cursor position and activates iPad mode when the cursor reaches the right edge of the primary display
 
 **iPad App (Swift + SwiftUI)**
@@ -108,7 +109,8 @@ The central challenge was making the connected and disconnected iPad views look 
 | Message | Payload | Description |
 |---|---|---|
 | `ping` | `{ timestamp }` | Heartbeat (every 5 s) |
-| `touch_event` | `{ action, x, y, pressure, tool }` | Touch or Apple Pencil input — `action`: `down`/`move`/`up`, coords normalized 0–1 |
+| `device_info` | `{ screenWidth, screenHeight }` | iPad logical screen size in points — sent once on connect; Windows resizes hidden window to match |
+| `touch_event` | `{ action, x, y, pressure }` | Touch or Apple Pencil input — `action`: `down`/`move`/`up`, coords normalized 0–1, pressure 0–1 |
 | `action` | `{ action, ...payload }` | Toolbar commands — `undo`, `redo`, `page_switch` (+ `page`), `page_add`, `tool_change` (+ `tool`), `color_change` (+ `color`), `size_change` (+ `size`) |
 
 #### Legacy Phase 0 messages (still active)
@@ -130,15 +132,26 @@ The central challenge was making the connected and disconnected iPad views look 
 ### Phase 0 — Proof of Concept (complete)
 iPad draws with Apple Pencil → strokes appear on desktop in real time over WebSocket. mDNS discovery, pressure sensitivity, SQLite storage, undo/redo, multi-page notebooks. Tested at 9–13 ms latency over WiFi.
 
-### Phase 1 — Second Screen MVP (implemented, pending hardware test)
-- Shared web app (`shared/`) — iOS-optimized note canvas running in both WKWebView and Electron
-- Hidden Electron window (1366×1024) renders the shared web app and is captured at 30 fps via `webContents.capturePage()`
-- Frames encoded as JPEG (quality 65) and broadcast over WebSocket as `screen_frame` messages
-- iPad connected mode: full-screen MJPEG stream display (`StreamView`) with native SwiftUI toolbar overlay
-- iPad offline mode: shared web app loaded locally in `WKWebView` (`WebAppView`)
-- Touch and Apple Pencil events forwarded to hidden window via `webContents.sendInputEvent()`
-- Cursor edge detection via `screen.getCursorScreenPoint()` polling at 60 Hz — cursor shown in stream
-- Phase 1 uses only cross-platform Electron APIs — **testable on macOS**, no Windows device required
+### Phase 1 — Second Screen MVP (hardware-tested; core issues fixed)
+
+**Verified working:**
+- mDNS discovery, WebSocket connection, latency display
+- MJPEG stream displays correctly on iPad
+- Drawing on iPad appears in stream and on Windows canvas
+- Toolbar actions (tool, color, size, undo, redo, page add) sync both directions
+- PDF export, image insertion, notebook management on Windows
+
+**Fixed after first hardware test:**
+- Hidden window now runs in **electron-mode** (all shared-app UI chrome hidden; canvas fills full window)
+- Hidden window **dynamically resizes** to match iPad screen dimensions on connect — fixes 1:1 scale and aspect ratio
+- Touch input uses **direct JS bridge** (`window.iPadPointerInput`) instead of `sendInputEvent` — Apple Pencil pressure now reaches the canvas
+- `StreamView` uses `.fit` (not `.fill`) to prevent cropping when dimensions don't match yet
+- Added missing `ipad-view:erase_at` IPC handler so eraser syncs to the Windows canvas
+
+**Known issues (next session):**
+- **Cursor x always 0** — cursor enters iPad screen at the left edge only; cannot move horizontally. Fix requires cursor warping (`SetCursorPos` on Windows / `CGWarpMouseCursorPosition` on macOS) — needs a native module (`robotjs` or `@nut-tree/nut-js`).
+- **Eraser visual inconsistency** — shared canvas uses pixel-level (`destination-out`) erasure; desktop uses stroke-proximity erasure. They look different. Fix requires refactoring the shared canvas eraser to use stroke-proximity (with a proper undo stack entry for erased strokes).
+- **Quick strokes → dots / smooth strokes → straight lines** — inherent to the round-trip protocol (WiFi latency reduces point density). Fix is client-side prediction (Phase 2): draw a local preview stroke on the iPad immediately, replace it with the authoritative stream frame when it arrives.
 
 ### Phase 2 — Input Polish
 - Client-side prediction: iPad draws local preview stroke immediately, replaced by stream frame (eliminates perceived drawing latency)
@@ -301,5 +314,9 @@ ipad-windows-canvas/
 - **VSCode terminal quirk:** VSCode sets `ELECTRON_RUN_AS_NODE` which breaks Electron. Use `npm run dev` from a standalone terminal if the integrated terminal fails.
 - WebSocket port: 8080
 - mDNS service type: `_ipadcanvas._tcp`
-- Hidden iPad view window: 1366×1024 (iPad Pro 12.9" landscape at logical 1×)
+- Hidden iPad view window: starts at 1366×1024, resized dynamically to match iPad screen on connect
 - MJPEG capture: 30 fps, JPEG quality 65, self-throttling (skips frame if previous capture hasn't finished)
+- To open DevTools for the hidden window during debugging, add temporarily to `main.js` after `createIPadWindow()`:
+  ```js
+  if (process.argv.includes('--dev')) ipadWindow.webContents.openDevTools({ mode: 'detach' });
+  ```

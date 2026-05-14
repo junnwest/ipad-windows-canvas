@@ -320,6 +320,48 @@ class CanvasEngine {
     };
   }
 
+  // ── Direct bridge input (Electron hidden-window) ────────────────────────────
+  // Called from window.iPadPointerInput with normalized 0-1 coords and pressure.
+  // Mirrors _onDown/_onMove/_onUp but skips DOM event normalization.
+
+  inputDown(nx, ny, pressure) {
+    const p = pressure > 0 ? pressure : 0.5;
+    this.activeStroke = {
+      id: this._uuid(),
+      points: [{ x: nx, y: ny, p, t: Date.now() }],
+      color: this.tool === 'eraser' ? null : this.color,
+      size: this.size,
+      tool: this.tool,
+    };
+    Bridge.send('stroke_begin', { stroke: this.activeStroke });
+  }
+
+  inputMove(nx, ny, pressure) {
+    if (!this.activeStroke) return;
+    const p = pressure > 0 ? pressure : 0.5;
+    const pt = { x: nx, y: ny, p, t: Date.now() };
+    this.activeStroke.points.push(pt);
+    this._renderActive();
+
+    const pts = this.activeStroke.points;
+    if (pts.length % 4 === 0) {
+      Bridge.send('stroke_points', {
+        id: this.activeStroke.id,
+        points: pts.slice(-4),
+      });
+    }
+  }
+
+  inputUp(nx, ny, pressure) {
+    if (!this.activeStroke) return;
+    const stroke = this.activeStroke;
+    this.activeStroke = null;
+    this.pages[this.currentPage].push(stroke);
+    this.redoStacks[this.currentPage] = [];
+    this.redraw();
+    Bridge.send('stroke_end', { id: stroke.id });
+  }
+
   // ── Helpers ──────────────────────────────────────────
 
   _uuid() {

@@ -7,9 +7,10 @@ const StorageService = require('./services/storage');
 const ExportService = require('./services/export');
 const CaptureService = require('./services/capture');
 
-// iPad view window dimensions — iPad Pro 12.9" landscape at logical 1x resolution
-const IPAD_VIEW_W = 1366;
-const IPAD_VIEW_H = 1024;
+// iPad view window dimensions — updated dynamically when iPad sends device_info.
+// Default to iPad Pro 12.9" landscape at logical 1x until device_info arrives.
+let IPAD_VIEW_W = 1366;
+let IPAD_VIEW_H = 1024;
 
 let mainWindow = null;
 let ipadWindow = null;   // hidden window that renders the shared web app and is streamed to iPad
@@ -178,29 +179,24 @@ function startServices() {
   };
 
   // ── Phase 1: touch_event — forward iPad pointer input to the hidden window ──
-  // The iPad sends normalized (0–1) coordinates; we scale to the hidden
-  // window's logical pixel dimensions and inject as synthetic mouse events.
+  // Uses a direct JS bridge (window.iPadPointerInput) instead of sendInputEvent
+  // so that Apple Pencil pressure is preserved and coordinates map exactly to
+  // the canvas regardless of the window's internal layout.
   server.onTouchEvent = (event) => {
     if (!ipadWindow || ipadWindow.isDestroyed()) return;
+    const { action, x, y, pressure = 0.5 } = event;
+    ipadWindow.webContents.executeJavaScript(
+      `window.iPadPointerInput && window.iPadPointerInput(${JSON.stringify(action)}, ${x}, ${y}, ${pressure})`
+    ).catch(() => {});
+  };
 
-    const x = Math.round(event.x * IPAD_VIEW_W);
-    const y = Math.round(event.y * IPAD_VIEW_H);
-
-    switch (event.action) {
-      case 'down':
-        ipadWindow.webContents.sendInputEvent({
-          type: 'mouseDown', x, y, button: 'left', clickCount: 1,
-        });
-        break;
-      case 'move':
-        ipadWindow.webContents.sendInputEvent({ type: 'mouseMove', x, y });
-        break;
-      case 'up':
-        ipadWindow.webContents.sendInputEvent({
-          type: 'mouseUp', x, y, button: 'left', clickCount: 1,
-        });
-        break;
-    }
+  // ── Phase 1: device_info — resize hidden window to match iPad screen ────────
+  server.onDeviceInfo = ({ width, height }) => {
+    if (!ipadWindow || ipadWindow.isDestroyed()) return;
+    IPAD_VIEW_W = Math.round(width);
+    IPAD_VIEW_H = Math.round(height);
+    ipadWindow.setContentSize(IPAD_VIEW_W, IPAD_VIEW_H);
+    logger.info(`iPad view resized to ${IPAD_VIEW_W}×${IPAD_VIEW_H}`);
   };
 
   // ── Phase 1: action — forward toolbar / page commands to hidden window ──
@@ -355,6 +351,14 @@ ipcMain.on('ipad-view:stroke_points', (_event, data) => {
       id: pending.id, color: pending.color, width: pending.width, tool: pending.tool,
       points: newPts,
     });
+  }
+});
+
+// Eraser proximity event from the hidden window's shared canvas
+ipcMain.on('ipad-view:erase_at', (_event, data) => {
+  if (!data || data.x == null) return;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('ipad-erase-at', { x: data.x, y: data.y });
   }
 });
 
