@@ -36,6 +36,15 @@ class CaptureService {
     }
   }
 
+  // Called on touch input to skip the timer wait and capture immediately.
+  // No-ops if a capture is already in flight.
+  captureNow() {
+    if (!this._running || this._capturing || this.wsServer.clientCount() === 0) return;
+    clearTimeout(this._timer);
+    this._timer = null;
+    this._capture();
+  }
+
   // ── Internal ──────────────────────────────────────────────────────────────
 
   _schedule() {
