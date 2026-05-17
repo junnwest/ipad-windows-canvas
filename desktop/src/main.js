@@ -182,7 +182,11 @@ function startServices() {
   server.onTouchEvent = (event) => {
     if (!ipadWindow || ipadWindow.isDestroyed()) return;
     const { action, x, y, pressure = 0.5 } = event;
-    ipadWindow.webContents.send('ipad-view-message', 'touch_event', { action, x, y, pressure });
+    const arrivedAt = Date.now();
+    if (action === 'down') {
+      console.log(`[touch] down arrived at Windows t=${arrivedAt}`);
+    }
+    ipadWindow.webContents.send('ipad-view-message', 'touch_event', { action, x, y, pressure, arrivedAt });
   };
 
   // ── Phase 1: device_info — resize hidden window to match iPad screen ────────

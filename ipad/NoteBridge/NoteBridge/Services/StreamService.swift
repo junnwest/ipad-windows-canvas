@@ -127,10 +127,17 @@ class StreamService: ObservableObject {
             }
 
         case "screen_frame":
+            let recvAt = Date().timeIntervalSince1970 * 1000
             guard let base64 = json["data"] as? String,
                   let imageData = Data(base64Encoded: base64),
                   let image = UIImage(data: imageData)
             else { return }
+            let capturedAt = json["capturedAt"] as? Double
+            let decodeMs = Date().timeIntervalSince1970 * 1000 - recvAt
+            if let cap = capturedAt {
+                let totalMs = recvAt - cap
+                print("[frame] total=\(Int(totalMs))ms  decode=\(Int(decodeMs))ms  bytes=\(imageData.count)")
+            }
             DispatchQueue.main.async {
                 self.currentFrame = image
             }
