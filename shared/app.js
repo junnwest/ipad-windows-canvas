@@ -35,6 +35,11 @@ const Bridge = (() => {
 // Expose so the host can call: window.bridgeReceive(type, data)
 window.bridgeReceive = (type, data) => Bridge.receive(type, data);
 
+// Wire the IPC push channel to Bridge so all host→renderer messages
+// (touch_event, cursor_pos, page_state, actions) bypass executeJavaScript.
+if (window.__electronIPCBridge?.onMessage) {
+  window.__electronIPCBridge.onMessage((type, data) => Bridge.receive(type, data));
+}
 
 // ── App ──────────────────────────────────────────────────────────────────────
 
@@ -51,13 +56,19 @@ window.bridgeReceive = (type, data) => Bridge.receive(type, data);
     document.getElementById('app').classList.add('electron-mode');
   }
 
-  // Direct input bridge for Electron: main.js calls this instead of
-  // sendInputEvent so we get pressure and correct normalized coordinates.
+  // Direct input bridge for Electron: kept for backward compat but no longer
+  // the primary path — touch_event now arrives via IPC (Bridge.on below).
   window.iPadPointerInput = (action, nx, ny, pressure) => {
     if      (action === 'down') engine.inputDown(nx, ny, pressure);
     else if (action === 'move') engine.inputMove(nx, ny, pressure);
     else if (action === 'up')   engine.inputUp(nx, ny, pressure);
   };
+
+  Bridge.on('touch_event', ({ action, x, y, pressure }) => {
+    if      (action === 'down') engine.inputDown(x, y, pressure);
+    else if (action === 'move') engine.inputMove(x, y, pressure);
+    else if (action === 'up')   engine.inputUp(x, y, pressure);
+  });
 
   // ── Tool selection ─────────────────────────────────
 

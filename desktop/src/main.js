@@ -88,9 +88,7 @@ function createIPadWindow() {
 function sendCursorUpdate(x, y) {
   server.broadcast({ type: 'cursor_pos', x, y });
   if (ipadWindow && !ipadWindow.isDestroyed()) {
-    ipadWindow.webContents.executeJavaScript(
-      `window.bridgeReceive && window.bridgeReceive('cursor_pos', ${JSON.stringify({ x, y })})`
-    ).catch(() => {});
+    ipadWindow.webContents.send('ipad-view-message', 'cursor_pos', { x, y });
   }
 }
 
@@ -179,15 +177,12 @@ function startServices() {
   };
 
   // ── Phase 1: touch_event — forward iPad pointer input to the hidden window ──
-  // Uses a direct JS bridge (window.iPadPointerInput) instead of sendInputEvent
-  // so that Apple Pencil pressure is preserved and coordinates map exactly to
-  // the canvas regardless of the window's internal layout.
+  // Uses webContents.send (native IPC) instead of executeJavaScript to avoid
+  // queue buildup at high touch rates (60-120 events/sec when drawing).
   server.onTouchEvent = (event) => {
     if (!ipadWindow || ipadWindow.isDestroyed()) return;
     const { action, x, y, pressure = 0.5 } = event;
-    ipadWindow.webContents.executeJavaScript(
-      `window.iPadPointerInput && window.iPadPointerInput(${JSON.stringify(action)}, ${x}, ${y}, ${pressure})`
-    ).catch(() => {});
+    ipadWindow.webContents.send('ipad-view-message', 'touch_event', { action, x, y, pressure });
   };
 
   // ── Phase 1: device_info — resize hidden window to match iPad screen ────────
@@ -202,10 +197,7 @@ function startServices() {
   // ── Phase 1: action — forward toolbar / page commands to hidden window ──
   server.onAction = (action, payload) => {
     if (!ipadWindow || ipadWindow.isDestroyed()) return;
-    // Use bridgeReceive so the shared web app handles it natively
-    ipadWindow.webContents.executeJavaScript(
-      `window.bridgeReceive && window.bridgeReceive(${JSON.stringify(action)}, ${JSON.stringify(payload)})`
-    ).catch(() => {});
+    ipadWindow.webContents.send('ipad-view-message', action, payload);
   };
 
   server.start();
@@ -378,9 +370,7 @@ ipcMain.on('ipad-view:stroke_end', (_event, data) => {
 ipcMain.on('send-to-ipad', (_event, data) => {
   server.broadcast(data);
   if (data.type === 'page_state' && ipadWindow && !ipadWindow.isDestroyed()) {
-    ipadWindow.webContents.executeJavaScript(
-      `window.bridgeReceive && window.bridgeReceive('page_state', ${JSON.stringify(data)})`
-    ).catch(() => {});
+    ipadWindow.webContents.send('ipad-view-message', 'page_state', data);
   }
 });
 
