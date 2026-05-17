@@ -6,7 +6,9 @@
       "Bash(cmd /c \"set PATH=C:\\\\Program Files\\\\nodejs;%PATH% && cd /d \"\"c:\\\\Users\\\\Kenneth\\\\Desktop\\\\Kenneth\\\\App Dev\\\\ipad-windows-canvas\\\\desktop\"\" && npm install\")",
       "Bash(powershell -ExecutionPolicy Bypass -File:*)",
       "Bash(npm install:*)",
-      "Bash(npx electron-rebuild -f -w better-sqlite3)"
+      "Bash(npx electron-rebuild -f -w better-sqlite3)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
