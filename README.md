@@ -43,9 +43,13 @@ The user should never feel a difference between the connected and disconnected i
 - mDNS discovery via `Network.framework` — finds Windows hosts automatically on the local network
 
 **Shared Web App (HTML/CSS/JS)**
-- The note-taking UI — canvas, toolbar, pages — built with iOS aesthetics (large touch targets, iOS-style typography)
+- Full multi-screen note-taking app — Library (notebook grid/shelf), Canvas (drawing), Settings — built with the NoteBridge design system: warm paper aesthetic, floating glass toolbar, Newsreader typography
+- Three screens: **Library** (notebook list with grid and shelf views, search), **Canvas** (drawing with floating glass toolbar, pen well, page nav pill), **Settings** (two-column layout, 6 sections)
+- Four modals: new notebook, pages overview, share, connection
 - Runs in `WKWebView` on iPad (offline/dev server) and in the hidden Electron window on Windows (connected)
-- Because it is the same code in both cases, the connected and disconnected views are visually identical
+- In **connected mode**, the app runs in `electron-mode`: all UI chrome is hidden and only the canvas is streamed — the SwiftUI toolbar handles controls
+- In **offline/dev-server mode**, the full Library → Canvas → Settings UI is visible and functional
+- Because it is the same rendering code in both cases, the canvas view is visually identical whether connected or offline
 
 ### System Diagram
 
@@ -152,6 +156,7 @@ iPad draws with Apple Pencil → strokes appear on desktop in real time over Web
 - **Cursor x always 0** — cursor enters iPad screen at the left edge only; cannot move horizontally. Fix requires cursor warping (`SetCursorPos` on Windows / `CGWarpMouseCursorPosition` on macOS) — needs a native module (`robotjs` or `@nut-tree/nut-js`).
 - **Eraser visual inconsistency** — shared canvas uses pixel-level (`destination-out`) erasure; desktop uses stroke-proximity erasure. They look different. Fix requires refactoring the shared canvas eraser to use stroke-proximity (with a proper undo stack entry for erased strokes).
 - **Quick strokes → dots / smooth strokes → straight lines** — inherent to the round-trip protocol (WiFi latency reduces point density). Fix is client-side prediction (Phase 2): draw a local preview stroke on the iPad immediately, replace it with the authoritative stream frame when it arrives.
+- **Shared web app UI not visible in connected mode** — in connected mode the iPad shows the MJPEG stream (canvas only) with the native SwiftUI toolbar; the new Library/Settings/modal UI is only accessible in offline or dev-server mode.
 
 ### Phase 2 — Input Polish
 - Client-side prediction: iPad draws local preview stroke immediately, replaced by stream frame (eliminates perceived drawing latency)
@@ -268,11 +273,21 @@ ipad-windows-canvas/
 │           ├── config.js
 │           └── logger.js
 │
-├── shared/                         # Shared web app (runs on both platforms)
-│   ├── index.html                  # iPad-optimized note canvas UI
-│   ├── app.js
-│   ├── canvas.js
-│   └── styles.css                  # iOS-style CSS
+├── shared/                         # Shared web app — source of truth
+│   ├── index.html                  # Library, Canvas, Settings screens + modal container
+│   ├── app.js                      # Bridge, screen routing, all UI logic (Library/Canvas/Settings/Modals)
+│   ├── canvas.js                   # CanvasEngine (drawing, pages, undo/redo) — do not edit
+│   └── styles.css                  # NoteBridge design system CSS (warm paper, glass toolbar)
+│
+│   ⚠️  ipad/NoteBridge/shared/ is a separate Xcode-bundled copy of these files.
+│       After editing shared/, copy the changed files there too (or the iPad offline
+│       mode will run stale code until the Xcode project is rebuilt).
+│
+├── design_handoff_notebridge/      # Design reference (React+Babel prototypes, read-only)
+│   ├── NoteBridge.html
+│   ├── design-system.jsx
+│   ├── app.jsx
+│   └── screens/                    # library.jsx, canvas.jsx, modals.jsx, settings.jsx
 │
 └── ipad/                           # Swift iPad app
     └── NoteBridge/
