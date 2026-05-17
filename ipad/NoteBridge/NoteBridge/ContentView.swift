@@ -299,25 +299,10 @@ struct ContentView: View {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private func connectTo(device: Device) {
-        // Resolve mDNS endpoint to a hostname and port, then connect StreamService
-        var host = ""
-        var port = 8080
-
-        // Extract host/port from NWEndpoint
-        switch device.endpoint {
-        case .hostPort(host: let h, port: let p):
-            host = "\(h)"
-            port = Int(p.rawValue)
-        case .service(name: let name, type: _, domain: let domain, interface: _):
-            // Fall back to .local hostname resolution
-            let clean = name
-                .replacingOccurrences(of: "iPad-Canvas-", with: "")
-                .replacingOccurrences(of: " ", with: "-")
-            host = "\(clean).\(domain.isEmpty ? "local" : domain)"
-        default:
-            return
-        }
-
-        stream.connect(host: host, port: port)
+        let host = device.name
+            .replacingOccurrences(of: "iPad-Canvas-", with: "")
+            .replacingOccurrences(of: " ", with: "-")
+            + ".local"
+        stream.connect(host: host, port: 8080)
     }
 }
