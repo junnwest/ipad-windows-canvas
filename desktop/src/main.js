@@ -182,11 +182,7 @@ function startServices() {
   server.onTouchEvent = (event) => {
     if (!ipadWindow || ipadWindow.isDestroyed()) return;
     const { action, x, y, pressure = 0.5 } = event;
-    const arrivedAt = Date.now();
-    if (action === 'down') {
-      console.log(`[touch] down arrived at Windows t=${arrivedAt}`);
-    }
-    ipadWindow.webContents.send('ipad-view-message', 'touch_event', { action, x, y, pressure, arrivedAt });
+    ipadWindow.webContents.send('ipad-view-message', 'touch_event', { action, x, y, pressure });
     captureService.captureNow();
   };
 

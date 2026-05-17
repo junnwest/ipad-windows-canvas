@@ -68,23 +68,16 @@ class CaptureService {
 
     this._capturing = true;
     try {
-      const t0 = Date.now();
       const image = await this.ipadWindow.webContents.capturePage();
-      const t1 = Date.now();
       const jpeg = image.toJPEG(this.quality);
-      const t2 = Date.now();
       const base64 = jpeg.toString('base64');
-      const t3 = Date.now();
       const { width, height } = image.getSize();
-
-      console.log(`[capture] capturePage=${t1-t0}ms  toJPEG=${t2-t1}ms  base64=${t3-t2}ms  size=${width}x${height}  bytes=${jpeg.length}`);
 
       this.wsServer.broadcast({
         type: 'screen_frame',
         data: base64,
         width,
         height,
-        capturedAt: t0,
       });
     } catch {
       // Window may have been destroyed — stop gracefully
