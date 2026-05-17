@@ -50,20 +50,15 @@ class ConnectionService: ObservableObject {
             case .ready:
                 guard !resolved else { return }
                 resolved = true
-                if let innerEndpoint = connection.currentPath?.remoteEndpoint,
-                   case .hostPort(let host, let port) = innerEndpoint {
-                    let hostStr: String
-                    switch host {
-                    case .ipv4(let addr): hostStr = "\(addr)"
-                    case .ipv6(let addr): hostStr = "[\(addr)]"
-                    default:              hostStr = "\(host)"
-                    }
-                    print("[Connection] Resolved to \(hostStr):\(port.rawValue)")
-                    connection.cancel()
-                    self?.resolveConnection = nil
-                    DispatchQueue.main.async {
-                        self?.connectWebSocket(host: hostStr, port: Int(port.rawValue))
-                    }
+                connection.cancel()
+                self?.resolveConnection = nil
+                let host = device.name
+                    .replacingOccurrences(of: "iPad-Canvas-", with: "")
+                    .replacingOccurrences(of: " ", with: "-")
+                    + ".local"
+                print("[Connection] Resolved .local hostname: \(host)")
+                DispatchQueue.main.async {
+                    self?.connectWebSocket(host: host, port: 8080)
                 }
             case .failed(let error):
                 print("[Connection] Resolve failed: \(error)")
@@ -84,12 +79,13 @@ class ConnectionService: ObservableObject {
             print("[Connection] NWConnection timed out, trying direct hostname...")
             connection.cancel()
             self?.resolveConnection = nil
-            if case .service(let name, _, _, _) = device.endpoint {
-                let hostname = name.replacingOccurrences(of: "iPad-Canvas-", with: "")
-                print("[Connection] Trying hostname: \(hostname).local")
-                DispatchQueue.main.async {
-                    self?.connectWebSocket(host: "\(hostname).local", port: 8080)
-                }
+            let host = device.name
+                .replacingOccurrences(of: "iPad-Canvas-", with: "")
+                .replacingOccurrences(of: " ", with: "-")
+                + ".local"
+            print("[Connection] Trying hostname: \(host)")
+            DispatchQueue.main.async {
+                self?.connectWebSocket(host: host, port: 8080)
             }
         }
     }
