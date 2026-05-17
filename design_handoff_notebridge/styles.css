@@ -1,0 +1,95 @@
+/* NoteBridge — warm paper design system */
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Paper tones — warm, low chroma */
+  --paper:        #faf6ee;
+  --paper-warm:   #f3ede1;
+  --paper-shadow: #e6dccb;
+  --paper-deep:   #ebe2d1;
+  --canvas-bg:    #ece4d3;
+
+  /* Ink — soft black, never pure */
+  --ink:          #1c1814;
+  --ink-soft:     #4a4138;
+  --ink-mute:     #897e6e;
+  --ink-faint:    #c5bba8;
+
+  --rule:         rgba(28, 24, 20, 0.07);
+  --rule-strong:  rgba(28, 24, 20, 0.13);
+
+  /* Accents — muted, share chroma */
+  --sage:         #5c7058;
+  --sage-soft:    #e6ece1;
+  --tan:          #b89868;
+  --red:          #b35040;
+  --blue:         #486488;
+  --yellow:       #d6b25a;
+  --plum:         #8c6aa6;
+
+  /* Typography */
+  --font-display: 'Newsreader', 'Source Serif 4', 'Iowan Old Style', Georgia, serif;
+  --font-ui:      'Geist', 'Söhne', 'Helvetica Neue', Helvetica, sans-serif;
+  --font-mono:    'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  font-family: var(--font-ui);
+  font-feature-settings: "ss01", "ss03", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  background: #2a2724;
+  color: var(--ink);
+}
+button {
+  font-family: inherit;
+  font-feature-settings: inherit;
+}
+input, textarea {
+  font-family: inherit;
+}
+
+/* Subtle paper grain */
+.paper-grain::before {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(154, 130, 95, 0.05) 0px, transparent 1px),
+    radial-gradient(circle at 80% 70%, rgba(154, 130, 95, 0.04) 0px, transparent 1.5px),
+    radial-gradient(circle at 50% 50%, rgba(154, 130, 95, 0.03) 0px, transparent 1px);
+  background-size: 7px 7px, 11px 11px, 13px 13px;
+}
+
+/* Scrollbar polish */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(28, 24, 20, 0.12);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background-color: rgba(28, 24, 20, 0.22); background-clip: padding-box; }
+
+@keyframes nb-pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.3 } }
+@keyframes nb-fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes nb-slide-up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes nb-scale-in { from { opacity: 0; transform: scale(0.96) } to { opacity: 1; transform: scale(1) } }
+@keyframes nb-shimmer { 0% { background-position: -200% 0 } 100% { background-position: 200% 0 } }
+
+.nb-fade { animation: nb-fade-in 220ms ease-out }
+.nb-slide-up { animation: nb-slide-up 280ms cubic-bezier(0.2, 0.8, 0.2, 1) }
+.nb-scale-in { animation: nb-scale-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) }
+
+/* Focus polish */
+button:focus-visible, input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+button { -webkit-tap-highlight-color: transparent; }

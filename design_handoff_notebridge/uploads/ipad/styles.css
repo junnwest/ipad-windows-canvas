@@ -1,0 +1,26 @@
+/* NoteBridge — warm paper design system */
+:root {
+  --paper: #faf7f2;
+  --paper-warm: #f4efe6;
+  --paper-shadow: #e8e1d4;
+  --ink: #1a1714;
+  --ink-soft: #4a423a;
+  --ink-mute: #8a8175;
+  --ink-faint: #c4bdb0;
+  --rule: rgba(26, 23, 20, 0.08);
+  --rule-strong: rgba(26, 23, 20, 0.14);
+  --sage: #5a7058;
+  --sage-soft: #e8ede4;
+  --tan: #c4a878;
+  --red: #b85544;
+  --blue: #4a6890;
+  --yellow: #e8c66a;
+
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Helvetica Neue", sans-serif;
+  --font-display: "New York", "Charter", "Iowan Old Style", "Georgia", serif;
+  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; font-family: var(--font-ui); -webkit-font-smoothing: antialiased; }
+button { font-family: inherit; }

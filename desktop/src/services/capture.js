@@ -20,6 +20,7 @@ class CaptureService {
     this._capturing = false;
     this._timer = null;
     this._frameInterval = Math.round(1000 / this.fps);
+    this._pendingCapture = false;
   }
 
   start() {
@@ -39,7 +40,11 @@ class CaptureService {
   // Called on touch input to skip the timer wait and capture immediately.
   // No-ops if a capture is already in flight.
   captureNow() {
-    if (!this._running || this._capturing || this.wsServer.clientCount() === 0) return;
+    if (!this._running || this.wsServer.clientCount() === 0) return;
+    if (this._capturing) {
+      this._pendingCapture = true;
+      return;
+    }
     clearTimeout(this._timer);
     this._timer = null;
     this._capture();
@@ -86,7 +91,12 @@ class CaptureService {
       this.stop();
     } finally {
       this._capturing = false;
-      this._schedule();
+      if (this._pendingCapture) {
+        this._pendingCapture = false;
+        this._capture();
+      } else {
+        this._schedule();
+      }
     }
   }
 }
